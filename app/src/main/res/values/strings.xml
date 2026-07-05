@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Счётчик калорий</string>
+    <string name="today">Сегодня</string>
+    <string name="prev_day">Предыдущий день</string>
+    <string name="next_day">Следующий день</string>
+    <string name="kcal_value">%d ккал</string>
+    <string name="goal_value">Цель: %d</string>
+    <string name="remaining">Осталось: %d ккал</string>
+    <string name="exceeded">Превышение: %d ккал</string>
+    <string name="empty_day">Пока нет записей.\nДобавьте первый приём пищи ниже.</string>
+    <string name="name_hint">Что съели</string>
+    <string name="kcal_hint">ккал</string>
+    <string name="add">+</string>
+    <string name="enter_kcal">Введите калории (число больше 0)</string>
+    <string name="default_entry_name">Приём пищи</string>
+    <string name="delete_title">Удалить запись?</string>
+    <string name="delete_message">%1$s — %2$d ккал</string>
+    <string name="delete">Удалить</string>
+    <string name="goal_title">Дневная цель, ккал</string>
+</resources>

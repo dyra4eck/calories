@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Яблоко -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,42c-4,-4 -10,-5 -15,-2c-7,4 -9,14 -5,23c3,7 9,12 15,12c2,0 3,-1 5,-1c2,0 3,1 5,1c6,0 12,-5 15,-12c4,-9 2,-19 -5,-23c-5,-3 -11,-2 -15,2z" />
+    <!-- Черенок -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M53,42c0,-6 2,-10 6,-13l2,2c-4,3 -5,6 -5,11z" />
+    <!-- Лист -->
+    <path
+        android:fillColor="#A5D6A7"
+        android:pathData="M58,33c5,-5 11,-5 14,-4c-1,4 -4,9 -10,9c-2,0 -3,-1 -4,-2z" />
+</vector>
