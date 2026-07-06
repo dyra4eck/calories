@@ -8,6 +8,7 @@ import androidx.recyclerview.widget.RecyclerView
 
 class EntryAdapter(
     private val entries: List<Entry>,
+    private val onClick: (Int) -> Unit,
     private val onLongClick: (Int) -> Unit
 ) : RecyclerView.Adapter<EntryAdapter.Holder>() {
 
@@ -42,6 +43,7 @@ class EntryAdapter(
             )
         }
 
+        holder.itemView.setOnClickListener { onClick(holder.bindingAdapterPosition) }
         holder.itemView.setOnLongClickListener {
             onLongClick(holder.bindingAdapterPosition)
             true

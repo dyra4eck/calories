@@ -9,7 +9,7 @@ import android.graphics.RectF
 import android.util.AttributeSet
 import android.view.View
 
-/** Столбчатый график калорий за неделю с линией дневной цели. */
+/** Столбчатый график калорий по дням с линией дневной цели. */
 class WeekChartView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null
@@ -56,8 +56,9 @@ class WeekChartView @JvmOverloads constructor(
         todayPaint.textSize = 11 * density
         goalPaint.strokeWidth = 1.5f * density
 
+        val showValues = values.size <= 10
         val labelSpace = 20 * density
-        val valueSpace = 18 * density
+        val valueSpace = if (showValues) 18 * density else 6 * density
         val chartBottom = height - labelSpace
         val chartHeight = chartBottom - valueSpace
         val maxValue = maxOf(values.max(), goal, 1) * 1.08f
@@ -69,7 +70,8 @@ class WeekChartView @JvmOverloads constructor(
         }
 
         val slot = width.toFloat() / values.size
-        val barWidth = slot * 0.55f
+        val barWidth = slot * if (values.size <= 10) 0.55f else 0.7f
+        val corner = if (values.size <= 10) 4 * density else 2 * density
 
         for (i in values.indices) {
             val value = values[i]
@@ -88,12 +90,12 @@ class WeekChartView @JvmOverloads constructor(
                     centerX + barWidth / 2,
                     chartBottom
                 ),
-                4 * density,
-                4 * density,
+                corner,
+                corner,
                 barPaint
             )
 
-            if (value > 0) {
+            if (showValues && value > 0) {
                 canvas.drawText(
                     value.toString(),
                     centerX,
@@ -102,12 +104,14 @@ class WeekChartView @JvmOverloads constructor(
                 )
             }
 
-            canvas.drawText(
-                labels[i],
-                centerX,
-                height - 5 * density,
-                if (i == todayIndex) todayPaint else textPaint
-            )
+            if (labels[i].isNotEmpty()) {
+                canvas.drawText(
+                    labels[i],
+                    centerX,
+                    height - 5 * density,
+                    if (i == todayIndex) todayPaint else textPaint
+                )
+            }
         }
     }
 }

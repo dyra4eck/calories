@@ -10,7 +10,9 @@ data class Product(
     val protein100: Double,
     val fat100: Double,
     val carbs100: Double,
-    val barcode: String? = null
+    val barcode: String? = null,
+    /** Сколько раз продукт добавляли в дневник — для сортировки подсказок. */
+    val uses: Int = 0
 )
 
 /** Округление до одного знака после запятой. */
