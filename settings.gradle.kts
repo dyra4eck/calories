@@ -11,6 +11,8 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // zxing-android-embedded (сканер штрих-кодов) публикуется на JitPack
+        maven("https://jitpack.io")
     }
 }
 

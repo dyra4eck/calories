@@ -37,5 +37,5 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.recyclerview:recyclerview:1.3.2")
     // Офлайн-сканер штрих-кодов (ZXing)
-    implementation("com.journeyapps:barcode-scanner:4.3.0")
+    implementation("com.github.journeyapps:zxing-android-embedded:4.3.0")
 }
