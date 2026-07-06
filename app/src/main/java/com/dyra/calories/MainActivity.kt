@@ -5,13 +5,14 @@ import android.os.Bundle
 import android.text.InputType
 import android.view.LayoutInflater
 import android.view.View
-import android.view.inputmethod.EditorInfo
-import android.widget.Button
+import android.widget.ArrayAdapter
+import android.widget.AutoCompleteTextView
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -36,12 +37,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var macrosText: TextView
     private lateinit var progressBar: ProgressBar
     private lateinit var emptyText: TextView
-    private lateinit var nameInput: EditText
-    private lateinit var kcalInput: EditText
+    private lateinit var searchInput: AutoCompleteTextView
     private lateinit var nextDayButton: ImageButton
 
     private var date: LocalDate = LocalDate.now()
     private val entries = mutableListOf<Entry>()
+    private var searchProducts: List<Product> = emptyList()
 
     private val dateFormat = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru"))
     private val timeFormat = DateTimeFormatter.ofPattern("HH:mm")
@@ -49,6 +50,36 @@ class MainActivity : AppCompatActivity() {
     private val scanLauncher = registerForActivityResult(ScanContract()) { result ->
         result.contents?.let { onBarcodeScanned(it) }
     }
+
+    private val exportLauncher =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+            if (uri == null) return@registerForActivityResult
+            try {
+                contentResolver.openOutputStream(uri)?.use { stream ->
+                    stream.write(store.exportJson().toByteArray())
+                }
+                Toast.makeText(this, R.string.export_done, Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(this, R.string.export_error, Toast.LENGTH_SHORT).show()
+            }
+        }
+
+    private val importLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri == null) return@registerForActivityResult
+            try {
+                val text = contentResolver.openInputStream(uri)?.use { stream ->
+                    stream.readBytes().decodeToString()
+                } ?: throw IllegalStateException()
+                store.importJson(text)
+                date = LocalDate.now()
+                loadDate()
+                refreshSearchAdapter()
+                Toast.makeText(this, R.string.import_done, Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(this, R.string.import_error, Toast.LENGTH_SHORT).show()
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,8 +94,7 @@ class MainActivity : AppCompatActivity() {
         macrosText = findViewById(R.id.macrosText)
         progressBar = findViewById(R.id.progressBar)
         emptyText = findViewById(R.id.emptyText)
-        nameInput = findViewById(R.id.nameInput)
-        kcalInput = findViewById(R.id.kcalInput)
+        searchInput = findViewById(R.id.searchInput)
         nextDayButton = findViewById(R.id.nextDayButton)
 
         val list = findViewById<RecyclerView>(R.id.entryList)
@@ -74,29 +104,45 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<ImageButton>(R.id.prevDayButton).setOnClickListener { shiftDate(-1) }
         nextDayButton.setOnClickListener { shiftDate(1) }
+        findViewById<ImageButton>(R.id.menuButton).setOnClickListener { showMenu() }
         findViewById<ImageButton>(R.id.productsButton).setOnClickListener { showProductPicker() }
-        findViewById<ImageButton>(R.id.statsButton).setOnClickListener {
-            startActivity(Intent(this, StatsActivity::class.java))
-        }
+        findViewById<ImageButton>(R.id.scanButton).setOnClickListener { startScan() }
         goalText.setOnClickListener { editGoal() }
 
-        val addButton = findViewById<Button>(R.id.addButton)
-        addButton.setOnClickListener { addQuickEntry() }
-        addButton.setOnLongClickListener {
-            showDetailedAddDialog()
-            true
+        searchInput.threshold = 1
+        searchInput.setOnItemClickListener { parent, _, position, _ ->
+            val label = parent.getItemAtPosition(position) as String
+            val product = searchProducts.find { productLabel(it) == label }
+            searchInput.text.clear()
+            product?.let { askGrams(it) }
         }
-
-        kcalInput.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_DONE) {
-                addQuickEntry()
-                true
-            } else {
-                false
+        searchInput.setOnClickListener {
+            if (searchProducts.isEmpty()) {
+                Toast.makeText(this, R.string.no_products, Toast.LENGTH_SHORT).show()
             }
         }
 
         loadDate()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // База могла измениться на экране продуктов
+        refreshSearchAdapter()
+    }
+
+    private fun productLabel(product: Product) =
+        "${product.name} — ${fmt(product.kcal100)} ккал/100 г"
+
+    private fun refreshSearchAdapter() {
+        searchProducts = store.products().sortedBy { it.name.lowercase() }
+        searchInput.setAdapter(
+            ArrayAdapter(
+                this,
+                android.R.layout.simple_dropdown_item_1line,
+                searchProducts.map { productLabel(it) }
+            )
+        )
     }
 
     private fun shiftDate(days: Long) {
@@ -120,26 +166,43 @@ class MainActivity : AppCompatActivity() {
         refreshSummary()
     }
 
-    /** Быстрое добавление из строки внизу: только название и калории. */
-    private fun addQuickEntry() {
-        val kcal = kcalInput.text.toString().trim().toIntOrNull()
-        if (kcal == null || kcal <= 0) {
-            Toast.makeText(this, R.string.enter_kcal, Toast.LENGTH_SHORT).show()
-            return
-        }
-        val name = nameInput.text.toString().trim()
-            .ifEmpty { getString(R.string.default_entry_name) }
-        addEntry(Entry(name, kcal, LocalTime.now().format(timeFormat)))
-        nameInput.text.clear()
-        kcalInput.text.clear()
-        nameInput.requestFocus()
-    }
-
     private fun addEntry(entry: Entry) {
         entries.add(entry)
         store.save(date, entries)
         adapter.notifyItemInserted(entries.size - 1)
         refreshSummary()
+    }
+
+    /** Меню приложения: статистика, база, экспорт и импорт данных. */
+    private fun showMenu() {
+        val items = arrayOf(
+            getString(R.string.stats_title),
+            getString(R.string.products_title),
+            getString(R.string.export_data),
+            getString(R.string.import_data)
+        )
+        AlertDialog.Builder(this)
+            .setItems(items) { _, which ->
+                when (which) {
+                    0 -> startActivity(Intent(this, StatsActivity::class.java))
+                    1 -> startActivity(Intent(this, ProductsActivity::class.java))
+                    2 -> exportLauncher.launch("calories-backup-${LocalDate.now()}.json")
+                    3 -> confirmImport()
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun confirmImport() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.import_data)
+            .setMessage(R.string.import_confirm)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                importLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream"))
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     /** Выбор продукта из базы; сверху — ручной ввод и сканер штрих-кода. */
@@ -149,7 +212,7 @@ class MainActivity : AppCompatActivity() {
             getString(R.string.manual_entry_option),
             getString(R.string.scan_option)
         )
-        products.mapTo(labels) { "${it.name} — ${fmt(it.kcal100)} ккал/100 г" }
+        products.mapTo(labels) { productLabel(it) }
 
         AlertDialog.Builder(this)
             .setTitle(R.string.pick_product)
@@ -195,6 +258,7 @@ class MainActivity : AppCompatActivity() {
                 ProductDialog.show(this, R.string.add_product, null, code) { product ->
                     products.add(product)
                     store.saveProducts(products)
+                    refreshSearchAdapter()
                     askGrams(product)
                 }
             }

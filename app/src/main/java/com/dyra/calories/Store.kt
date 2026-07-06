@@ -89,5 +89,38 @@ class Store(context: Context) {
         prefs.edit().putString("products", array.toString()).apply()
     }
 
+    /** Полный дамп данных (цель, продукты, записи по дням) в JSON. */
+    fun exportJson(): String {
+        val days = JSONObject()
+        for ((key, value) in prefs.all) {
+            if (key.startsWith("entries_") && value is String) {
+                days.put(key.removePrefix("entries_"), JSONArray(value))
+            }
+        }
+        return JSONObject()
+            .put("goal", goal)
+            .put("products", JSONArray(prefs.getString("products", "[]")))
+            .put("days", days)
+            .toString(2)
+    }
+
+    /** Восстановление из дампа: полностью заменяет текущие данные. */
+    fun importJson(text: String) {
+        val root = JSONObject(text)
+        val goalValue = root.optInt("goal", 2000)
+        val productsValue = root.optJSONArray("products")
+        val daysValue = root.optJSONObject("days")
+
+        val editor = prefs.edit().clear()
+        editor.putInt("goal", goalValue)
+        productsValue?.let { editor.putString("products", it.toString()) }
+        daysValue?.let { days ->
+            for (key in days.keys()) {
+                editor.putString("entries_$key", days.getJSONArray(key).toString())
+            }
+        }
+        editor.apply()
+    }
+
     private fun key(date: LocalDate) = "entries_$date"
 }
