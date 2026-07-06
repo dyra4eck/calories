@@ -5,6 +5,11 @@ on:
     branches: ["**"]
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Тег релиза (например, v1.4). Если указан — публикуется GitHub Release."
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -63,14 +68,22 @@ jobs:
           if-no-files-found: error
 
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.release_tag != ''
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUT_TAG: ${{ inputs.release_tag }}
         run: |
+          if [ -n "$INPUT_TAG" ]; then
+            tag="$INPUT_TAG"
+            target="--target $GITHUB_SHA"
+          else
+            tag="$GITHUB_REF_NAME"
+            target=""
+          fi
           files="app/build/outputs/apk/debug/app-debug.apk"
           if [ -f app/build/outputs/apk/release/app-release.apk ]; then
             files="app/build/outputs/apk/release/app-release.apk app/build/outputs/bundle/release/app-release.aab $files"
           fi
-          gh release create "$GITHUB_REF_NAME" $files \
-            --title "Счётчик калорий $GITHUB_REF_NAME" \
+          gh release create "$tag" $target $files \
+            --title "Счётчик калорий $tag" \
             --generate-notes
