@@ -79,6 +79,14 @@
         android:layout_marginTop="4dp"
         android:textSize="14sp" />
 
+    <TextView
+        android:id="@+id/macrosText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:textColor="#4CAF50"
+        android:textSize="14sp" />
+
     <!-- Список приёмов пищи -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/entryList"
@@ -103,6 +111,15 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:orientation="horizontal">
+
+        <ImageButton
+            android:id="@+id/productsButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="center_vertical"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/products_title"
+            android:src="@android:drawable/ic_menu_agenda" />
 
         <EditText
             android:id="@+id/nameInput"

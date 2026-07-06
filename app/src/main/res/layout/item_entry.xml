@@ -21,6 +21,13 @@
             android:textSize="16sp" />
 
         <TextView
+            android:id="@+id/entryMacros"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#4CAF50"
+            android:textSize="12sp" />
+
+        <TextView
             android:id="@+id/entryTime"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

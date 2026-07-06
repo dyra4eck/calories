@@ -14,6 +14,7 @@ class EntryAdapter(
     class Holder(view: View) : RecyclerView.ViewHolder(view) {
         val name: TextView = view.findViewById(R.id.entryName)
         val time: TextView = view.findViewById(R.id.entryTime)
+        val macros: TextView = view.findViewById(R.id.entryMacros)
         val kcal: TextView = view.findViewById(R.id.entryKcal)
     }
 
@@ -25,9 +26,22 @@ class EntryAdapter(
 
     override fun onBindViewHolder(holder: Holder, position: Int) {
         val entry = entries[position]
+        val context = holder.itemView.context
         holder.name.text = entry.name
         holder.time.text = entry.time
-        holder.kcal.text = holder.itemView.context.getString(R.string.kcal_value, entry.kcal)
+        holder.kcal.text = context.getString(R.string.kcal_value, entry.kcal)
+
+        val hasMacros = entry.protein > 0 || entry.fat > 0 || entry.carbs > 0
+        holder.macros.visibility = if (hasMacros) View.VISIBLE else View.GONE
+        if (hasMacros) {
+            holder.macros.text = context.getString(
+                R.string.entry_macros,
+                fmt(entry.protein),
+                fmt(entry.fat),
+                fmt(entry.carbs)
+            )
+        }
+
         holder.itemView.setOnLongClickListener {
             onLongClick(holder.bindingAdapterPosition)
             true
