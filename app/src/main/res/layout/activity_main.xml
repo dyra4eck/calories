@@ -38,6 +38,14 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/next_day"
             android:src="@android:drawable/ic_media_next" />
+
+        <ImageButton
+            android:id="@+id/statsButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/stats_title"
+            android:src="@android:drawable/ic_menu_recent_history" />
     </LinearLayout>
 
     <!-- Итог дня -->

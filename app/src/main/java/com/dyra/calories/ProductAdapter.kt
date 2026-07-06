@@ -26,13 +26,18 @@ class ProductAdapter(
     override fun onBindViewHolder(holder: Holder, position: Int) {
         val product = products[position]
         holder.name.text = product.name
-        holder.info.text = holder.itemView.context.getString(
+        val context = holder.itemView.context
+        var info = context.getString(
             R.string.product_info,
             fmt(product.kcal100),
             fmt(product.protein100),
             fmt(product.fat100),
             fmt(product.carbs100)
         )
+        product.barcode?.let {
+            info += "\n" + context.getString(R.string.product_barcode_line, it)
+        }
+        holder.info.text = info
         holder.itemView.setOnClickListener { onClick(holder.bindingAdapterPosition) }
         holder.itemView.setOnLongClickListener {
             onLongClick(holder.bindingAdapterPosition)

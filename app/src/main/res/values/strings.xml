@@ -39,6 +39,17 @@
     <string name="per_100g">Значения на 100 грамм</string>
     <string name="product_info">%1$s ккал • Б %2$s • Ж %3$s • У %4$s (на 100 г)</string>
     <string name="kcal_full_hint">Калории</string>
+    <string name="per_100g_with_barcode">Значения на 100 грамм • код %s</string>
+    <string name="product_barcode_line">Штрих-код: %s</string>
+    <string name="scan_option">📷 Сканировать штрих-код</string>
+    <string name="scan_button">Сканировать код</string>
+    <string name="scan_prompt">Наведите камеру на штрих-код продукта</string>
+    <string name="barcode_known">Код уже в базе — открываю продукт</string>
+    <string name="barcode_unknown_title">Продукт не найден</string>
+    <string name="barcode_unknown_message">Штрих-код %s ещё не привязан к продукту. Создать продукт с этим кодом? В следующий раз он найдётся при сканировании автоматически.</string>
+    <string name="stats_title">Статистика за неделю</string>
+    <string name="stats_hint">Калории по дням за последние 7 дней. Пунктир — дневная цель, красный столбик — превышение.</string>
+    <string name="stats_summary">Дней с записями: %1$d из 7\nВсего за неделю: %2$d ккал\nВ среднем за день: %3$d ккал\nСредние БЖУ за день:\nБ %4$s г • Ж %5$s г • У %6$s г</string>
     <string name="protein_hint">Белки, г</string>
     <string name="fat_hint">Жиры, г</string>
     <string name="carbs_hint">Углеводы, г</string>

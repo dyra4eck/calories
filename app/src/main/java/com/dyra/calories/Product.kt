@@ -9,7 +9,8 @@ data class Product(
     val kcal100: Double,
     val protein100: Double,
     val fat100: Double,
-    val carbs100: Double
+    val carbs100: Double,
+    val barcode: String? = null
 )
 
 /** Округление до одного знака после запятой. */

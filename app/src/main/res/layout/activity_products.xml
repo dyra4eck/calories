@@ -36,11 +36,26 @@
         android:text="@string/no_products"
         android:textColor="#888888" />
 
-    <Button
-        android:id="@+id/addProductButton"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="@string/add_product" />
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/scanProductButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:layout_weight="1"
+            android:text="@string/scan_button" />
+
+        <Button
+            android:id="@+id/addProductButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/add_product" />
+    </LinearLayout>
 
 </LinearLayout>

@@ -16,6 +16,8 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -44,6 +46,10 @@ class MainActivity : AppCompatActivity() {
     private val dateFormat = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru"))
     private val timeFormat = DateTimeFormatter.ofPattern("HH:mm")
 
+    private val scanLauncher = registerForActivityResult(ScanContract()) { result ->
+        result.contents?.let { onBarcodeScanned(it) }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -69,6 +75,9 @@ class MainActivity : AppCompatActivity() {
         findViewById<ImageButton>(R.id.prevDayButton).setOnClickListener { shiftDate(-1) }
         nextDayButton.setOnClickListener { shiftDate(1) }
         findViewById<ImageButton>(R.id.productsButton).setOnClickListener { showProductPicker() }
+        findViewById<ImageButton>(R.id.statsButton).setOnClickListener {
+            startActivity(Intent(this, StatsActivity::class.java))
+        }
         goalText.setOnClickListener { editGoal() }
 
         val addButton = findViewById<Button>(R.id.addButton)
@@ -133,23 +142,61 @@ class MainActivity : AppCompatActivity() {
         refreshSummary()
     }
 
-    /** Выбор продукта из базы; первый пункт — ручной ввод с БЖУ. */
+    /** Выбор продукта из базы; сверху — ручной ввод и сканер штрих-кода. */
     private fun showProductPicker() {
         val products = store.products().sortedBy { it.name.lowercase() }
-        val labels = mutableListOf(getString(R.string.manual_entry_option))
+        val labels = mutableListOf(
+            getString(R.string.manual_entry_option),
+            getString(R.string.scan_option)
+        )
         products.mapTo(labels) { "${it.name} — ${fmt(it.kcal100)} ккал/100 г" }
 
         AlertDialog.Builder(this)
             .setTitle(R.string.pick_product)
             .setItems(labels.toTypedArray()) { _, which ->
-                if (which == 0) {
-                    showDetailedAddDialog()
-                } else {
-                    askGrams(products[which - 1])
+                when (which) {
+                    0 -> showDetailedAddDialog()
+                    1 -> startScan()
+                    else -> askGrams(products[which - 2])
                 }
             }
             .setNeutralButton(R.string.manage_products) { _, _ ->
                 startActivity(Intent(this, ProductsActivity::class.java))
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun startScan() {
+        scanLauncher.launch(
+            ScanOptions()
+                .setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES)
+                .setPrompt(getString(R.string.scan_prompt))
+                .setBeepEnabled(false)
+                .setOrientationLocked(false)
+        )
+    }
+
+    /**
+     * Отсканирован код: если он уже привязан к продукту в базе — сразу
+     * спрашиваем вес; иначе предлагаем создать продукт с этим кодом.
+     */
+    private fun onBarcodeScanned(code: String) {
+        val products = store.products()
+        val existing = products.find { it.barcode == code }
+        if (existing != null) {
+            askGrams(existing)
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.barcode_unknown_title)
+            .setMessage(getString(R.string.barcode_unknown_message, code))
+            .setPositiveButton(R.string.add_product) { _, _ ->
+                ProductDialog.show(this, R.string.add_product, null, code) { product ->
+                    products.add(product)
+                    store.saveProducts(products)
+                    askGrams(product)
+                }
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()

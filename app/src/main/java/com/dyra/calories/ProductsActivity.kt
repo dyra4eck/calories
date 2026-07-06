@@ -1,16 +1,16 @@
 package com.dyra.calories
 
 import android.os.Bundle
-import android.view.LayoutInflater
 import android.view.View
 import android.widget.Button
-import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 
 /** Экран управления базой продуктов (КБЖУ на 100 г). */
 class ProductsActivity : AppCompatActivity() {
@@ -19,6 +19,10 @@ class ProductsActivity : AppCompatActivity() {
     private lateinit var adapter: ProductAdapter
     private lateinit var emptyText: TextView
     private val products = mutableListOf<Product>()
+
+    private val scanLauncher = registerForActivityResult(ScanContract()) { result ->
+        result.contents?.let { onBarcodeScanned(it) }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,63 +43,56 @@ class ProductsActivity : AppCompatActivity() {
         list.adapter = adapter
 
         findViewById<Button>(R.id.addProductButton).setOnClickListener { showEditDialog(null) }
+        findViewById<Button>(R.id.scanProductButton).setOnClickListener {
+            scanLauncher.launch(
+                ScanOptions()
+                    .setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES)
+                    .setPrompt(getString(R.string.scan_prompt))
+                    .setBeepEnabled(false)
+                    .setOrientationLocked(false)
+            )
+        }
 
         refreshEmpty()
     }
 
+    /**
+     * Скан из базы: знакомый код открывает продукт на редактирование,
+     * новый — создание продукта с привязанным кодом.
+     */
+    private fun onBarcodeScanned(code: String) {
+        val index = products.indexOfFirst { it.barcode == code }
+        if (index >= 0) {
+            Toast.makeText(this, R.string.barcode_known, Toast.LENGTH_SHORT).show()
+            showEditDialog(index)
+        } else {
+            ProductDialog.show(this, R.string.add_product, null, code) { product ->
+                addOrUpdate(null, product)
+            }
+        }
+    }
+
     /** position == null — создание нового продукта. */
     private fun showEditDialog(position: Int?) {
-        val view = LayoutInflater.from(this).inflate(R.layout.dialog_food, null)
-        view.findViewById<TextView>(R.id.foodSubtitle).setText(R.string.per_100g)
-
-        val nameInput = view.findViewById<EditText>(R.id.foodName)
-        val kcalInput = view.findViewById<EditText>(R.id.foodKcal)
-        val proteinInput = view.findViewById<EditText>(R.id.foodProtein)
-        val fatInput = view.findViewById<EditText>(R.id.foodFat)
-        val carbsInput = view.findViewById<EditText>(R.id.foodCarbs)
-
-        if (position != null) {
-            val product = products[position]
-            nameInput.setText(product.name)
-            kcalInput.setText(fmt(product.kcal100))
-            proteinInput.setText(fmt(product.protein100))
-            fatInput.setText(fmt(product.fat100))
-            carbsInput.setText(fmt(product.carbs100))
+        ProductDialog.show(
+            this,
+            if (position == null) R.string.add_product else R.string.edit_product,
+            position?.let { products[it] }
+        ) { product ->
+            addOrUpdate(position, product)
         }
+    }
 
-        AlertDialog.Builder(this)
-            .setTitle(if (position == null) R.string.add_product else R.string.edit_product)
-            .setView(view)
-            .setPositiveButton(R.string.save) { _, _ ->
-                val name = nameInput.text.toString().trim()
-                val kcal = parseNum(kcalInput.text.toString())
-                if (name.isEmpty()) {
-                    Toast.makeText(this, R.string.name_required, Toast.LENGTH_SHORT).show()
-                    return@setPositiveButton
-                }
-                if (kcal == null || kcal < 0) {
-                    Toast.makeText(this, R.string.enter_kcal, Toast.LENGTH_SHORT).show()
-                    return@setPositiveButton
-                }
-                val product = Product(
-                    name = name,
-                    kcal100 = kcal,
-                    protein100 = parseNum(proteinInput.text.toString()) ?: 0.0,
-                    fat100 = parseNum(fatInput.text.toString()) ?: 0.0,
-                    carbs100 = parseNum(carbsInput.text.toString()) ?: 0.0
-                )
-                if (position == null) {
-                    products.add(product)
-                    adapter.notifyItemInserted(products.size - 1)
-                } else {
-                    products[position] = product
-                    adapter.notifyItemChanged(position)
-                }
-                store.saveProducts(products)
-                refreshEmpty()
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+    private fun addOrUpdate(position: Int?, product: Product) {
+        if (position == null) {
+            products.add(product)
+            adapter.notifyItemInserted(products.size - 1)
+        } else {
+            products[position] = product
+            adapter.notifyItemChanged(position)
+        }
+        store.saveProducts(products)
+        refreshEmpty()
     }
 
     private fun confirmDelete(position: Int) {

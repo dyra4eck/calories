@@ -66,7 +66,8 @@ class Store(context: Context) {
                     kcal100 = obj.optDouble("kcal", 0.0),
                     protein100 = obj.optDouble("protein", 0.0),
                     fat100 = obj.optDouble("fat", 0.0),
-                    carbs100 = obj.optDouble("carbs", 0.0)
+                    carbs100 = obj.optDouble("carbs", 0.0),
+                    barcode = obj.optString("barcode").ifEmpty { null }
                 )
             )
         }
@@ -76,14 +77,14 @@ class Store(context: Context) {
     fun saveProducts(products: List<Product>) {
         val array = JSONArray()
         for (product in products) {
-            array.put(
-                JSONObject()
-                    .put("name", product.name)
-                    .put("kcal", product.kcal100)
-                    .put("protein", product.protein100)
-                    .put("fat", product.fat100)
-                    .put("carbs", product.carbs100)
-            )
+            val obj = JSONObject()
+                .put("name", product.name)
+                .put("kcal", product.kcal100)
+                .put("protein", product.protein100)
+                .put("fat", product.fat100)
+                .put("carbs", product.carbs100)
+            product.barcode?.let { obj.put("barcode", it) }
+            array.put(obj)
         }
         prefs.edit().putString("products", array.toString()).apply()
     }
