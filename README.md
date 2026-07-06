@@ -40,6 +40,20 @@
 
 Запустить сборку вручную: **Actions → Build APK → Run workflow**.
 
+#### Подписанный release-APK
+
+Если в репозитории заданы секреты (**Settings → Secrets and variables →
+Actions**):
+
+- `KEYSTORE_BASE64` — файл ключа `release.keystore` в base64;
+- `KEYSTORE_PASSWORD` — пароль хранилища и ключа (alias — `calories`);
+
+то CI дополнительно собирает подписанный `app-release.apk`
+(артефакт `calorie-counter-release-apk`). Без секретов собирается
+только debug-версия. Файл ключа храните в надёжном месте: при его
+утере обновления поверх установленной release-версии станут
+невозможны (потребуется переустановка).
+
 ### Способ 2 — Android Studio
 
 1. Установите [Android Studio](https://developer.android.com/studio).

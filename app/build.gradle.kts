@@ -15,9 +15,27 @@ android {
         versionName = "1.3"
     }
 
+    // Ключ подписи передаётся через переменные окружения (в CI — из GitHub
+    // Secrets). Без них собирается только debug; release остаётся неподписанным.
+    val keystorePath: String? = System.getenv("KEYSTORE_FILE")
+    if (keystorePath != null) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS") ?: "calories"
+                keyPassword = System.getenv("KEY_PASSWORD")
+                    ?: System.getenv("KEYSTORE_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (keystorePath != null) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
