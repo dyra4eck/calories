@@ -148,6 +148,46 @@
     <string name="height_hint">Рост, см</string>
     <string name="activity_label">Уровень активности</string>
 
+    <string name="trend_rate">Тренд: %s кг/нед</string>
+    <string name="trend_forecast">цель ≈ %s</string>
+    <string name="tdee_title">Фактический расход энергии</string>
+    <string name="tdee_line">≈ %1$d ккал/день.\nСредний рацион %2$d ккал, вес %3$s кг/нед, дней с едой: %4$d (за 3 недели). Это точнее формулы — оно посчитано по вашим реальным данным.</string>
+    <string name="tdee_not_enough">Мало данных: ведите дневник еды и взвешивайтесь 2–3 недели, и приложение посчитает ваш реальный расход калорий по динамике веса.</string>
+    <string name="tdee_apply">Пересчитать цели от фактического расхода</string>
+    <string name="tdee_plans_title">По фактическому расходу</string>
+
+    <string name="measurements_title">Замеры тела</string>
+    <string name="measurements_button">📏 Замеры</string>
+    <string name="measurements_hint">Обхваты в сантиметрах. Замеряйте раз в 1–2 недели в одно и то же время дня.</string>
+    <string name="measure_add">Записать замер</string>
+    <string name="measure_cm_hint">Обхват, см</string>
+    <string name="measure_current">Последний: %1$s см (%2$s)</string>
+    <string name="measure_no_data">Замеров пока нет</string>
+    <string name="measure_invalid">Введите обхват в см (число больше 0)</string>
+
+    <string name="photos_title">Фото прогресса</string>
+    <string name="photos_button">📸 Фото</string>
+    <string name="photos_hint">Снимайте раз в неделю в одинаковой позе и освещении — так прогресс виднее всего.</string>
+    <string name="photos_empty">Фото пока нет.\nДобавьте первый снимок — через месяц будет с чем сравнить.</string>
+    <string name="photo_add">Добавить фото</string>
+    <string name="photo_compare">Было / стало</string>
+    <string name="photo_compare_title">Было → стало</string>
+    <string name="photo_before">Было</string>
+    <string name="photo_after">Стало</string>
+    <string name="photo_need_two">Нужно хотя бы два фото</string>
+    <string name="photo_delete_confirm">Удалить это фото?</string>
+    <string name="photo_error">Не удалось добавить фото</string>
+
+    <string-array name="measure_types">
+        <item>Шея</item>
+        <item>Плечи</item>
+        <item>Грудь</item>
+        <item>Бицепс</item>
+        <item>Талия</item>
+        <item>Бедро</item>
+        <item>Голень</item>
+    </string-array>
+
     <string name="calc_macros">Рассчитать КБЖУ</string>
     <string name="calc_need_profile">Сначала заполните параметры тела</string>
     <string name="calc_need_weight">Сначала запишите текущий вес</string>

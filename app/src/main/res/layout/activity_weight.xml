@@ -32,6 +32,14 @@
             android:textColor="#888888"
             android:textSize="14sp" />
 
+        <TextView
+            android:id="@+id/weightTrendText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textColor="?attr/colorPrimary"
+            android:textSize="14sp" />
+
         <com.dyra.calories.WeightChartView
             android:id="@+id/weightChart"
             android:layout_width="match_parent"
@@ -74,6 +82,54 @@
             android:layout_height="wrap_content"
             style="?attr/materialButtonOutlinedStyle"
             android:text="@string/weight_history" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/measurementsButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:layout_weight="1"
+                style="?attr/materialButtonOutlinedStyle"
+                android:text="@string/measurements_button" />
+
+            <Button
+                android:id="@+id/photosButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                style="?attr/materialButtonOutlinedStyle"
+                android:text="@string/photos_button" />
+        </LinearLayout>
+
+        <!-- Фактический расход энергии по данным еда + вес -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="@string/tdee_title"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tdeeText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="#888888"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/tdeeApplyButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/tdee_apply"
+            android:visibility="gone" />
 
         <TextView
             android:layout_width="match_parent"

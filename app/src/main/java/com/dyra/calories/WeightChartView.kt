@@ -117,6 +117,7 @@ class WeightChartView @JvmOverloads constructor(
 
         val xs = points.map { xOf(it.first) }
         val ys = points.map { yOf(it.second) }
+        val trendYs = WeightMath.trend(points.map { it.second }).map { yOf(it) }
 
         if (points.size == 1) {
             canvas.drawCircle(width / 2f, ys[0], 4 * density, dotPaint)
@@ -124,25 +125,30 @@ class WeightChartView @JvmOverloads constructor(
             canvas.drawText(fmt(points[0].second), width / 2f, ys[0] - 10 * density, valuePaint)
         } else {
             // Сглаженная кривая: Катмулл-Ром через точки, переведённый в Безье
-            val path = Path()
-            path.moveTo(xs[0], ys[0])
-            for (i in 0 until points.size - 1) {
-                val prevX = xs.getOrElse(i - 1) { xs[i] }
-                val prevY = ys.getOrElse(i - 1) { ys[i] }
-                val nextX = xs.getOrElse(i + 2) { xs[i + 1] }
-                val nextY = ys.getOrElse(i + 2) { ys[i + 1] }
-                path.cubicTo(
-                    xs[i] + (xs[i + 1] - prevX) / 6f,
-                    ys[i] + (ys[i + 1] - prevY) / 6f,
-                    xs[i + 1] - (nextX - xs[i]) / 6f,
-                    ys[i + 1] - (nextY - ys[i]) / 6f,
-                    xs[i + 1],
-                    ys[i + 1]
-                )
+            fun smoothPath(pointYs: List<Float>): Path {
+                val path = Path()
+                path.moveTo(xs[0], pointYs[0])
+                for (i in 0 until points.size - 1) {
+                    val prevX = xs.getOrElse(i - 1) { xs[i] }
+                    val prevY = pointYs.getOrElse(i - 1) { pointYs[i] }
+                    val nextX = xs.getOrElse(i + 2) { xs[i + 1] }
+                    val nextY = pointYs.getOrElse(i + 2) { pointYs[i + 1] }
+                    path.cubicTo(
+                        xs[i] + (xs[i + 1] - prevX) / 6f,
+                        pointYs[i] + (pointYs[i + 1] - prevY) / 6f,
+                        xs[i + 1] - (nextX - xs[i]) / 6f,
+                        pointYs[i + 1] - (nextY - pointYs[i]) / 6f,
+                        xs[i + 1],
+                        pointYs[i + 1]
+                    )
+                }
+                return path
             }
 
-            // Заливка под кривой
-            val fillPath = Path(path)
+            val trendPath = smoothPath(trendYs)
+
+            // Заливка под трендом
+            val fillPath = Path(trendPath)
             fillPath.lineTo(xs.last(), chartBottom)
             fillPath.lineTo(xs.first(), chartBottom)
             fillPath.close()
@@ -152,13 +158,20 @@ class WeightChartView @JvmOverloads constructor(
                 Shader.TileMode.CLAMP
             )
             canvas.drawPath(fillPath, fillPaint)
-            canvas.drawPath(path, linePaint)
 
-            // Точки записей (при большом числе — только каждая заметная)
-            val dotRadius = if (points.size > 40) 2 * density else 3 * density
+            // Сырые значения — тонкая полупрозрачная линия с точками
+            linePaint.strokeWidth = 1.2f * density
+            linePaint.color = Color.parseColor("#802E7D32")
+            canvas.drawPath(smoothPath(ys), linePaint)
+            val dotRadius = if (points.size > 40) 1.5f * density else 2.5f * density
             for (i in points.indices) {
                 canvas.drawCircle(xs[i], ys[i], dotRadius, dotPaint)
             }
+
+            // Тренд — жирная основная линия
+            linePaint.strokeWidth = 2.5f * density
+            linePaint.color = Color.parseColor("#2E7D32")
+            canvas.drawPath(trendPath, linePaint)
 
             // Подписи значений у первой и последней точки
             valuePaint.textAlign = Paint.Align.LEFT

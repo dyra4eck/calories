@@ -1,7 +1,9 @@
 package com.dyra.calories
 
+import android.content.Intent
 import android.os.Bundle
 import android.text.InputType
+import android.view.View
 import android.view.LayoutInflater
 import android.widget.ArrayAdapter
 import android.widget.Button
@@ -29,7 +31,10 @@ class WeightActivity : AppCompatActivity() {
     private lateinit var chart: WeightChartView
     private lateinit var currentText: TextView
     private lateinit var targetText: TextView
+    private lateinit var trendText: TextView
     private lateinit var profileText: TextView
+    private lateinit var tdeeText: TextView
+    private lateinit var tdeeApplyButton: Button
 
     private val historyDateFormat = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("ru"))
 
@@ -41,13 +46,22 @@ class WeightActivity : AppCompatActivity() {
         chart = findViewById(R.id.weightChart)
         currentText = findViewById(R.id.weightCurrentText)
         targetText = findViewById(R.id.weightTargetText)
+        trendText = findViewById(R.id.weightTrendText)
         profileText = findViewById(R.id.profileSummaryText)
+        tdeeText = findViewById(R.id.tdeeText)
+        tdeeApplyButton = findViewById(R.id.tdeeApplyButton)
 
         findViewById<Button>(R.id.addWeightButton).setOnClickListener { showWeightDialog(LocalDate.now(), null) }
         findViewById<Button>(R.id.targetWeightButton).setOnClickListener { showTargetDialog() }
         findViewById<Button>(R.id.weightHistoryButton).setOnClickListener { showHistory() }
         findViewById<Button>(R.id.profileButton).setOnClickListener { showProfileDialog() }
         findViewById<Button>(R.id.calcMacrosButton).setOnClickListener { showCalculation() }
+        findViewById<Button>(R.id.measurementsButton).setOnClickListener {
+            startActivity(Intent(this, MeasurementsActivity::class.java))
+        }
+        findViewById<Button>(R.id.photosButton).setOnClickListener {
+            startActivity(Intent(this, PhotoActivity::class.java))
+        }
 
         refresh()
     }
@@ -78,6 +92,8 @@ class WeightActivity : AppCompatActivity() {
         }
 
         chart.setData(weights, target)
+        refreshTrend(weights, current, target)
+        refreshTdee()
 
         profileText.text = if (store.profileAge > 0 && store.profileHeight > 0) {
             getString(
@@ -89,6 +105,55 @@ class WeightActivity : AppCompatActivity() {
             )
         } else {
             getString(R.string.profile_not_set)
+        }
+    }
+
+    /** «Тренд: −0,4 кг/нед • цель ≈ 15 сентября». */
+    private fun refreshTrend(
+        weights: List<Pair<LocalDate, Double>>,
+        current: Double?,
+        target: Double
+    ) {
+        val rate = WeightMath.weeklyRate(weights)
+        if (rate == null) {
+            trendText.visibility = View.GONE
+            return
+        }
+        trendText.visibility = View.VISIBLE
+        val rateText = getString(
+            R.string.trend_rate,
+            (if (rate > 0) "+" else "") + fmt(round1(rate))
+        )
+        var forecast = ""
+        if (target > 0 && current != null && kotlin.math.abs(rate) >= 0.05) {
+            val weeks = (target - current) / rate
+            if (weeks > 0 && weeks < 104) {
+                val eta = LocalDate.now().plusDays((weeks * 7).toLong())
+                forecast = " • " + getString(R.string.trend_forecast, eta.format(historyDateFormat))
+            }
+        }
+        trendText.text = rateText + forecast
+    }
+
+    /** Фактический расход энергии за последние 3 недели. */
+    private fun refreshTdee() {
+        val real = WeightMath.realTdee(store)
+        if (real == null) {
+            tdeeText.text = getString(R.string.tdee_not_enough)
+            tdeeApplyButton.visibility = View.GONE
+            return
+        }
+        tdeeText.text = getString(
+            R.string.tdee_line,
+            real.tdee,
+            real.avgIntake,
+            (if (real.ratePerWeek > 0) "+" else "") + fmt(real.ratePerWeek),
+            real.foodDays
+        )
+        tdeeApplyButton.visibility = View.VISIBLE
+        tdeeApplyButton.setOnClickListener {
+            val weight = store.currentWeight() ?: return@setOnClickListener
+            showPlansDialog(real.tdee.toDouble(), weight, getString(R.string.tdee_plans_title))
         }
     }
 
@@ -234,6 +299,16 @@ class WeightActivity : AppCompatActivity() {
 
         val bmr = MacroCalculator.bmr(store.profileMale, weight, store.profileHeight, store.profileAge)
         val tdee = MacroCalculator.tdee(bmr, store.profileActivity)
+        showPlansDialog(
+            tdee,
+            weight,
+            getString(R.string.calc_title) + "\n" +
+                getString(R.string.calc_subtitle, bmr.roundToInt(), tdee.roundToInt())
+        )
+    }
+
+    /** Три плана (набор/поддержание/похудение) от заданного суточного расхода. */
+    private fun showPlansDialog(tdee: Double, weight: Double, title: String) {
         val perKg = store.proteinPerKg
         val plans = listOf(
             MacroCalculator.plan(MacroCalculator.Goal.GAIN, tdee, weight, perKg),
@@ -251,10 +326,7 @@ class WeightActivity : AppCompatActivity() {
 
         // setMessage вместе со setItems не работает — сводка идёт в заголовок
         AlertDialog.Builder(this)
-            .setTitle(
-                getString(R.string.calc_title) + "\n" +
-                    getString(R.string.calc_subtitle, bmr.roundToInt(), tdee.roundToInt())
-            )
+            .setTitle(title)
             .setItems(labels) { _, which -> confirmApplyGoals(plans[which]) }
             .setNegativeButton(android.R.string.cancel, null)
             .show()

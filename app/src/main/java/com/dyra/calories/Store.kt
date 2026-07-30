@@ -138,6 +138,37 @@ class Store(context: Context) {
         prefs.edit().putString("weights", obj.toString()).apply()
     }
 
+    // ---------- Замеры тела (обхваты, см) ----------
+
+    /** Замеры одного типа (индекс из массива measure_types), от старых к новым. */
+    fun measurements(type: Int): List<Pair<LocalDate, Double>> {
+        val root = JSONObject(prefs.getString("measurements", null) ?: return emptyList())
+        val obj = root.optJSONObject(type.toString()) ?: return emptyList()
+        val list = mutableListOf<Pair<LocalDate, Double>>()
+        for (key in obj.keys()) {
+            try {
+                list.add(LocalDate.parse(key) to obj.getDouble(key))
+            } catch (e: Exception) {
+                // Битую запись пропускаем
+            }
+        }
+        return list.sortedBy { it.first }
+    }
+
+    fun setMeasurement(type: Int, date: LocalDate, value: Double) {
+        val root = JSONObject(prefs.getString("measurements", null) ?: "{}")
+        val obj = root.optJSONObject(type.toString()) ?: JSONObject()
+        obj.put(date.toString(), value)
+        root.put(type.toString(), obj)
+        prefs.edit().putString("measurements", root.toString()).apply()
+    }
+
+    fun removeMeasurement(type: Int, date: LocalDate) {
+        val root = JSONObject(prefs.getString("measurements", null) ?: return)
+        root.optJSONObject(type.toString())?.remove(date.toString())
+        prefs.edit().putString("measurements", root.toString()).apply()
+    }
+
     private fun entriesFromJson(array: JSONArray): MutableList<Entry> {
         val list = mutableListOf<Entry>()
         for (i in 0 until array.length()) {
@@ -319,6 +350,7 @@ class Store(context: Context) {
                     .put("activity", profileActivity)
             )
             .put("weights", JSONObject(prefs.getString("weights", "{}")))
+            .put("measurements", JSONObject(prefs.getString("measurements", "{}")))
             .put("products", JSONArray(prefs.getString("products", "[]")))
             .put("days", days)
             .toString(2)
@@ -351,6 +383,7 @@ class Store(context: Context) {
             editor.putInt("profile_activity", profile.optInt("activity", 2))
         }
         root.optJSONObject("weights")?.let { editor.putString("weights", it.toString()) }
+        root.optJSONObject("measurements")?.let { editor.putString("measurements", it.toString()) }
         editor.putInt("water_goal", root.optInt("waterGoal", 2000))
         editor.putFloat("protein_per_kg", root.optDouble("proteinPerKg", 1.8).toFloat())
         root.optJSONObject("water")?.let { water ->
