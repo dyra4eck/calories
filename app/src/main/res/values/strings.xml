@@ -112,6 +112,24 @@
     <string name="apply_train_days">Тренировочные</string>
     <string name="menu_csv">📄 Экспорт дневника в CSV</string>
 
+    <!-- Тренировки -->
+    <string name="menu_workouts">🏋️ Тренировки</string>
+    <string name="workout_hint">Нажмите на упражнение — добавить подход, долгое нажатие — история и удаление. День с тренировкой автоматически включает тренировочные цели КБЖУ.</string>
+    <string name="workout_empty">Тренировки нет.\nВведите упражнение внизу и добавляйте подходы.</string>
+    <string name="exercise_name_hint">Упражнение (например, Жим лёжа)</string>
+    <string name="exercise_name_required">Введите название упражнения</string>
+    <string name="add_set_title">%s: новый подход</string>
+    <string name="set_weight_hint">Вес, кг</string>
+    <string name="set_reps_hint">Повторы</string>
+    <string name="set_invalid">Проверьте вес и повторы</string>
+    <string name="no_sets_hint">Подходов пока нет — нажмите, чтобы добавить</string>
+    <string name="exercise_history">📈 История и 1ПМ</string>
+    <string name="remove_last_set">Удалить последний подход</string>
+    <string name="remove_exercise">Удалить упражнение</string>
+    <string name="exercise_no_history">По этому упражнению ещё нет подходов</string>
+    <string name="exercise_best_1rm">Лучший расчётный 1ПМ: %d кг</string>
+    <string name="exercise_1rm_hint">График — лучший расчётный одноповторный максимум (формула Эпли) по тренировкам.</string>
+
     <string-array name="meals">
         <item>🍳 Завтрак</item>
         <item>🍲 Обед</item>

@@ -384,6 +384,7 @@ class MainActivity : AppCompatActivity() {
             when (item.itemId) {
                 R.id.menu_stats -> startActivity(Intent(this, StatsActivity::class.java))
                 R.id.menu_weight -> startActivity(Intent(this, WeightActivity::class.java))
+                R.id.menu_workouts -> startActivity(Intent(this, WorkoutActivity::class.java))
                 R.id.menu_products -> startActivity(Intent(this, ProductsActivity::class.java))
                 R.id.menu_templates -> showTemplatesDialog()
                 R.id.menu_reminder -> showReminderDialog()

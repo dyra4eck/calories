@@ -50,6 +50,11 @@
             android:parentActivityName=".MainActivity" />
 
         <activity
+            android:name=".WorkoutActivity"
+            android:exported="false"
+            android:parentActivityName=".MainActivity" />
+
+        <activity
             android:name=".MeasurementsActivity"
             android:exported="false"
             android:parentActivityName=".WeightActivity" />
