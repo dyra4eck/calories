@@ -51,9 +51,34 @@
     <string name="scan_option">📷 Сканировать штрих-код</string>
     <string name="scan_button">Сканировать код</string>
     <string name="scan_prompt">Наведите камеру на штрих-код продукта</string>
+    <string name="scan_title">Сканирование</string>
+    <string name="scan_hint">Наведите камеру на штрих-код —\nон распознается автоматически</string>
+    <string name="torch_toggle">Фонарик</string>
+    <string name="close">Закрыть</string>
     <string name="barcode_known">Код уже в базе — открываю продукт</string>
     <string name="barcode_unknown_title">Продукт не найден</string>
-    <string name="barcode_unknown_message">Штрих-код %s ещё не привязан к продукту. Создать продукт с этим кодом? В следующий раз он найдётся при сканировании автоматически.</string>
+    <string name="barcode_unknown_message">Штрих-код %s не найден ни в вашей базе, ни в общей базе продуктов. Создать продукт вручную? В следующий раз он найдётся при сканировании автоматически.</string>
+
+    <!-- Общая база продуктов (Open Food Facts) -->
+    <string name="online_lookup_progress">Ищем штрих-код в общей базе продуктов…</string>
+    <string name="online_found">Найдено в общей базе — проверьте КБЖУ перед сохранением</string>
+    <string name="online_search_option">🌐 Найти в общей базе (интернет)</string>
+    <string name="online_search_title">Поиск в общей базе</string>
+    <string name="online_search_hint">Название продукта</string>
+    <string name="online_search_progress">Ищем в общей базе продуктов…</string>
+    <string name="online_search_empty">Ничего не нашлось. Попробуйте другое название или добавьте продукт вручную.</string>
+    <string name="online_error">Нет соединения с общей базой продуктов</string>
+    <string name="search_word">Найти</string>
+
+    <!-- Обновления -->
+    <string name="check_updates">Проверить обновления</string>
+    <string name="update_checking">Проверяем обновления…</string>
+    <string name="update_available_title">Доступно обновление %s</string>
+    <string name="update_available_message">Установлена версия %1$s. Скачать новую версию %2$s?</string>
+    <string name="update_download">Скачать</string>
+    <string name="update_later">Позже</string>
+    <string name="update_none">У вас последняя версия</string>
+    <string name="update_error">Не удалось проверить обновления</string>
     <string name="stats_title">Статистика</string>
     <string name="stats_hint">Столбики — калории по дням (пунктир — цель, красный — превышение). Ниже — БЖУ по дням в граммах.</string>
     <string name="period_7">7 дней</string>

@@ -69,3 +69,63 @@ object ProductDialog {
             .show()
     }
 }
+
+/** Неблокирующий диалог «идёт загрузка…»; отмена — кнопкой «назад». */
+fun showProgressDialog(activity: Activity, textRes: Int): AlertDialog {
+    val view = LayoutInflater.from(activity).inflate(R.layout.dialog_progress, null)
+    view.findViewById<TextView>(R.id.progressText).setText(textRes)
+    return AlertDialog.Builder(activity)
+        .setView(view)
+        .setCancelable(true)
+        .show()
+}
+
+/** Диалоги поиска продукта в общей базе (Open Food Facts). */
+object OnlineSearchDialog {
+
+    fun show(activity: Activity, onPicked: (Product) -> Unit) {
+        val input = EditText(activity).apply {
+            hint = activity.getString(R.string.online_search_hint)
+        }
+        AlertDialog.Builder(activity)
+            .setTitle(R.string.online_search_title)
+            .setView(input)
+            .setPositiveButton(R.string.search_word) { _, _ ->
+                val query = input.text.toString().trim()
+                if (query.isNotEmpty()) runSearch(activity, query, onPicked)
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun runSearch(activity: Activity, query: String, onPicked: (Product) -> Unit) {
+        val progress = showProgressDialog(activity, R.string.online_search_progress)
+        FoodFacts.search(query) { results ->
+            if (activity.isFinishing || !progress.isShowing) return@search
+            progress.dismiss()
+            when {
+                results == null ->
+                    Toast.makeText(activity, R.string.online_error, Toast.LENGTH_SHORT).show()
+                results.isEmpty() ->
+                    Toast.makeText(activity, R.string.online_search_empty, Toast.LENGTH_LONG).show()
+                else -> showResults(activity, results, onPicked)
+            }
+        }
+    }
+
+    private fun showResults(activity: Activity, results: List<Product>, onPicked: (Product) -> Unit) {
+        val labels = results
+            .map { "${it.name} — ${fmt(it.kcal100)} ккал/100 г" }
+            .toTypedArray()
+        AlertDialog.Builder(activity)
+            .setTitle(R.string.online_search_title)
+            .setItems(labels) { _, which ->
+                // Даём проверить и поправить КБЖУ перед сохранением в свою базу
+                ProductDialog.show(activity, R.string.add_product, results[which]) { product ->
+                    onPicked(product)
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+}

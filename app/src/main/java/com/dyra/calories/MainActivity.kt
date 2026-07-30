@@ -4,6 +4,7 @@ import android.Manifest
 import android.app.TimePickerDialog
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.text.InputType
@@ -22,7 +23,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.journeyapps.barcodescanner.ScanContract
-import com.journeyapps.barcodescanner.ScanOptions
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -131,6 +131,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         loadDate()
+        maybeCheckForUpdate()
     }
 
     override fun onResume() {
@@ -202,7 +203,8 @@ class MainActivity : AppCompatActivity() {
             getString(R.string.products_title),
             reminderLabel,
             getString(R.string.export_data),
-            getString(R.string.import_data)
+            getString(R.string.import_data),
+            getString(R.string.check_updates)
         )
         AlertDialog.Builder(this)
             .setItems(items) { _, which ->
@@ -212,9 +214,57 @@ class MainActivity : AppCompatActivity() {
                     2 -> showReminderDialog()
                     3 -> exportLauncher.launch("calories-backup-${LocalDate.now()}.json")
                     4 -> confirmImport()
+                    5 -> checkForUpdateManually()
                 }
             }
             .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    // ---------- Обновления ----------
+
+    private fun currentVersion(): String =
+        packageManager.getPackageInfo(packageName, 0).versionName ?: "0"
+
+    /** Тихая проверка обновлений при запуске, не чаще раза в сутки. */
+    private fun maybeCheckForUpdate() {
+        val now = System.currentTimeMillis()
+        if (now - store.updateCheckedAt < 24 * 60 * 60 * 1000L) return
+        store.updateCheckedAt = now
+        UpdateChecker.check { release ->
+            if (isFinishing || release == null) return@check
+            if (UpdateChecker.isNewer(release.version, currentVersion())) {
+                showUpdateDialog(release)
+            }
+        }
+    }
+
+    private fun checkForUpdateManually() {
+        Toast.makeText(this, R.string.update_checking, Toast.LENGTH_SHORT).show()
+        UpdateChecker.check { release ->
+            if (isFinishing) return@check
+            when {
+                release == null ->
+                    Toast.makeText(this, R.string.update_error, Toast.LENGTH_SHORT).show()
+                UpdateChecker.isNewer(release.version, currentVersion()) ->
+                    showUpdateDialog(release)
+                else ->
+                    Toast.makeText(this, R.string.update_none, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun showUpdateDialog(release: UpdateChecker.Release) {
+        val message = release.notes.take(1500).ifEmpty {
+            getString(R.string.update_available_message, currentVersion(), release.version)
+        }
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.update_available_title, release.version))
+            .setMessage(message)
+            .setPositiveButton(R.string.update_download) { _, _ ->
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(release.downloadUrl)))
+            }
+            .setNegativeButton(R.string.update_later, null)
             .show()
     }
 
@@ -295,12 +345,13 @@ class MainActivity : AppCompatActivity() {
 
     // ---------- Добавление еды ----------
 
-    /** Выбор продукта из базы; сверху — ручной ввод и сканер штрих-кода. */
+    /** Выбор продукта из базы; сверху — ручной ввод, сканер и общая база. */
     private fun showProductPicker() {
         val products = sortedProducts()
         val labels = mutableListOf(
             getString(R.string.manual_entry_option),
-            getString(R.string.scan_option)
+            getString(R.string.scan_option),
+            getString(R.string.online_search_option)
         )
         products.mapTo(labels) { productLabel(it) }
 
@@ -310,7 +361,8 @@ class MainActivity : AppCompatActivity() {
                 when (which) {
                     0 -> showEntryDialog(null)
                     1 -> startScan()
-                    else -> askGrams(products[which - 2])
+                    2 -> OnlineSearchDialog.show(this) { product -> saveNewProduct(product) }
+                    else -> askGrams(products[which - 3])
                 }
             }
             .setNeutralButton(R.string.manage_products) { _, _ ->
@@ -321,35 +373,51 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startScan() {
-        scanLauncher.launch(
-            ScanOptions()
-                .setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES)
-                .setPrompt(getString(R.string.scan_prompt))
-                .setBeepEnabled(false)
-                .setOrientationLocked(false)
-        )
+        scanLauncher.launch(ScanActivity.options())
+    }
+
+    /** Сохранить новый продукт в свою базу и сразу спросить вес порции. */
+    private fun saveNewProduct(product: Product) {
+        val products = store.products()
+        products.add(product)
+        store.saveProducts(products)
+        refreshSearchAdapter()
+        askGrams(product)
     }
 
     /**
      * Отсканирован код: если он уже привязан к продукту в базе — сразу
-     * спрашиваем вес; иначе предлагаем создать продукт с этим кодом.
+     * спрашиваем вес; иначе ищем его в общей базе продуктов, а при неудаче
+     * предлагаем создать продукт вручную.
      */
     private fun onBarcodeScanned(code: String) {
-        val products = store.products()
-        val existing = products.find { it.barcode == code }
+        val existing = store.products().find { it.barcode == code }
         if (existing != null) {
             askGrams(existing)
             return
         }
+        val progress = showProgressDialog(this, R.string.online_lookup_progress)
+        FoodFacts.byBarcode(code) { found ->
+            if (isFinishing || !progress.isShowing) return@byBarcode
+            progress.dismiss()
+            if (found != null) {
+                Toast.makeText(this, R.string.online_found, Toast.LENGTH_SHORT).show()
+                ProductDialog.show(this, R.string.add_product, found, code) { product ->
+                    saveNewProduct(product)
+                }
+            } else {
+                askCreateProduct(code)
+            }
+        }
+    }
+
+    private fun askCreateProduct(code: String) {
         AlertDialog.Builder(this)
             .setTitle(R.string.barcode_unknown_title)
             .setMessage(getString(R.string.barcode_unknown_message, code))
             .setPositiveButton(R.string.add_product) { _, _ ->
                 ProductDialog.show(this, R.string.add_product, null, code) { product ->
-                    products.add(product)
-                    store.saveProducts(products)
-                    refreshSearchAdapter()
-                    askGrams(product)
+                    saveNewProduct(product)
                 }
             }
             .setNegativeButton(android.R.string.cancel, null)

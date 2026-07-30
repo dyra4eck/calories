@@ -10,7 +10,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.journeyapps.barcodescanner.ScanContract
-import com.journeyapps.barcodescanner.ScanOptions
 
 /** Экран управления базой продуктов (КБЖУ на 100 г). */
 class ProductsActivity : AppCompatActivity() {
@@ -44,13 +43,10 @@ class ProductsActivity : AppCompatActivity() {
 
         findViewById<Button>(R.id.addProductButton).setOnClickListener { showEditDialog(null) }
         findViewById<Button>(R.id.scanProductButton).setOnClickListener {
-            scanLauncher.launch(
-                ScanOptions()
-                    .setDesiredBarcodeFormats(ScanOptions.ALL_CODE_TYPES)
-                    .setPrompt(getString(R.string.scan_prompt))
-                    .setBeepEnabled(false)
-                    .setOrientationLocked(false)
-            )
+            scanLauncher.launch(ScanActivity.options())
+        }
+        findViewById<Button>(R.id.onlineSearchButton).setOnClickListener {
+            OnlineSearchDialog.show(this) { product -> addOrUpdate(null, product) }
         }
 
         refreshEmpty()
@@ -58,15 +54,24 @@ class ProductsActivity : AppCompatActivity() {
 
     /**
      * Скан из базы: знакомый код открывает продукт на редактирование,
-     * новый — создание продукта с привязанным кодом.
+     * новый сначала ищется в общей базе продуктов, а при неудаче
+     * создаётся вручную с привязанным кодом.
      */
     private fun onBarcodeScanned(code: String) {
         val index = products.indexOfFirst { it.barcode == code }
         if (index >= 0) {
             Toast.makeText(this, R.string.barcode_known, Toast.LENGTH_SHORT).show()
             showEditDialog(index)
-        } else {
-            ProductDialog.show(this, R.string.add_product, null, code) { product ->
+            return
+        }
+        val progress = showProgressDialog(this, R.string.online_lookup_progress)
+        FoodFacts.byBarcode(code) { found ->
+            if (isFinishing || !progress.isShowing) return@byBarcode
+            progress.dismiss()
+            if (found != null) {
+                Toast.makeText(this, R.string.online_found, Toast.LENGTH_SHORT).show()
+            }
+            ProductDialog.show(this, R.string.add_product, found, code) { product ->
                 addOrUpdate(null, product)
             }
         }

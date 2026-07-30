@@ -39,6 +39,11 @@ class Store(context: Context) {
         get() = prefs.getInt("reminder_minute", 0)
         set(value) = prefs.edit().putInt("reminder_minute", value).apply()
 
+    /** Когда в последний раз тихо проверяли обновления (мс с эпохи). */
+    var updateCheckedAt: Long
+        get() = prefs.getLong("update_checked_at", 0L)
+        set(value) = prefs.edit().putLong("update_checked_at", value).apply()
+
     fun entriesFor(date: LocalDate): MutableList<Entry> {
         val raw = prefs.getString(key(date), null) ?: return mutableListOf()
         val array = JSONArray(raw)

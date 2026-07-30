@@ -36,10 +36,16 @@
         android:text="@string/no_products"
         android:textColor="#888888" />
 
-    <LinearLayout
+    <Button
+        android:id="@+id/onlineSearchButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
+        android:text="@string/online_search_option" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
         android:orientation="horizontal">
 
         <Button
