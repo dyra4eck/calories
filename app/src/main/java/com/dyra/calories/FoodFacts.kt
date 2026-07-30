@@ -18,7 +18,7 @@ import java.util.concurrent.Executors
 object FoodFacts {
 
     private const val FIELDS = "code,product_name,product_name_ru,brands,nutriments"
-    private const val USER_AGENT = "CaloriesApp/1.5 (https://github.com/dyra4eck/calories)"
+    private const val USER_AGENT = "CaloriesApp/2.0 (https://github.com/dyra4eck/calories)"
 
     private val executor = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
