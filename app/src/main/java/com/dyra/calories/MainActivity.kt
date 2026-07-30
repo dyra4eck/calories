@@ -14,14 +14,17 @@ import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.EditText
 import android.widget.ImageButton
-import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import androidx.core.view.GravityCompat
+import androidx.drawerlayout.widget.DrawerLayout
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.navigation.NavigationView
 import com.journeyapps.barcodescanner.ScanContract
 import java.time.LocalDate
 import java.time.LocalTime
@@ -35,14 +38,17 @@ class MainActivity : AppCompatActivity() {
     private lateinit var adapter: EntryAdapter
 
     private lateinit var dateText: TextView
-    private lateinit var totalText: TextView
     private lateinit var goalText: TextView
     private lateinit var remainingText: TextView
-    private lateinit var macrosText: TextView
-    private lateinit var progressBar: ProgressBar
+    private lateinit var kcalRing: MacroRingView
+    private lateinit var proteinRing: MacroRingView
+    private lateinit var fatRing: MacroRingView
+    private lateinit var carbsRing: MacroRingView
     private lateinit var emptyText: TextView
     private lateinit var searchInput: AutoCompleteTextView
     private lateinit var nextDayButton: ImageButton
+    private lateinit var drawerLayout: DrawerLayout
+    private lateinit var navView: NavigationView
 
     private var date: LocalDate = LocalDate.now()
     private val entries = mutableListOf<Entry>()
@@ -92,14 +98,23 @@ class MainActivity : AppCompatActivity() {
         store = Store(this)
 
         dateText = findViewById(R.id.dateText)
-        totalText = findViewById(R.id.totalText)
         goalText = findViewById(R.id.goalText)
         remainingText = findViewById(R.id.remainingText)
-        macrosText = findViewById(R.id.macrosText)
-        progressBar = findViewById(R.id.progressBar)
+        kcalRing = findViewById(R.id.kcalRing)
+        proteinRing = findViewById(R.id.proteinRing)
+        fatRing = findViewById(R.id.fatRing)
+        carbsRing = findViewById(R.id.carbsRing)
         emptyText = findViewById(R.id.emptyText)
         searchInput = findViewById(R.id.searchInput)
         nextDayButton = findViewById(R.id.nextDayButton)
+        drawerLayout = findViewById(R.id.drawerLayout)
+        navView = findViewById(R.id.navView)
+
+        proteinRing.setRingColor(ContextCompat.getColor(this, R.color.macro_protein))
+        fatRing.setRingColor(ContextCompat.getColor(this, R.color.macro_fat))
+        carbsRing.setRingColor(ContextCompat.getColor(this, R.color.macro_carbs))
+
+        setUpDrawer()
 
         val list = findViewById<RecyclerView>(R.id.entryList)
         adapter = EntryAdapter(
@@ -112,7 +127,9 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<ImageButton>(R.id.prevDayButton).setOnClickListener { shiftDate(-1) }
         nextDayButton.setOnClickListener { shiftDate(1) }
-        findViewById<ImageButton>(R.id.menuButton).setOnClickListener { showMenu() }
+        findViewById<ImageButton>(R.id.menuButton).setOnClickListener {
+            drawerLayout.openDrawer(GravityCompat.START)
+        }
         findViewById<ImageButton>(R.id.productsButton).setOnClickListener { showProductPicker() }
         findViewById<ImageButton>(R.id.scanButton).setOnClickListener { startScan() }
         goalText.setOnClickListener { editGoals() }
@@ -136,8 +153,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // База могла измениться на экране продуктов
+        // База могла измениться на экране продуктов, цели — на экране веса
         refreshSearchAdapter()
+        refreshSummary()
+        refreshReminderMenuItem()
     }
 
     private fun productLabel(product: Product) =
@@ -188,9 +207,29 @@ class MainActivity : AppCompatActivity() {
         refreshSummary()
     }
 
-    /** Меню приложения. */
-    private fun showMenu() {
-        val reminderLabel = if (store.reminderEnabled) {
+    /** Боковое меню приложения. */
+    private fun setUpDrawer() {
+        navView.getHeaderView(0).findViewById<TextView>(R.id.navVersion).text =
+            getString(R.string.version_label, currentVersion())
+        navView.setNavigationItemSelectedListener { item ->
+            drawerLayout.closeDrawers()
+            when (item.itemId) {
+                R.id.menu_stats -> startActivity(Intent(this, StatsActivity::class.java))
+                R.id.menu_weight -> startActivity(Intent(this, WeightActivity::class.java))
+                R.id.menu_products -> startActivity(Intent(this, ProductsActivity::class.java))
+                R.id.menu_reminder -> showReminderDialog()
+                R.id.menu_export ->
+                    exportLauncher.launch("calories-backup-${LocalDate.now()}.json")
+                R.id.menu_import -> confirmImport()
+                R.id.menu_updates -> checkForUpdateManually()
+            }
+            true
+        }
+    }
+
+    /** Пункт «Напоминание» показывает текущее состояние. */
+    private fun refreshReminderMenuItem() {
+        val label = if (store.reminderEnabled) {
             getString(
                 R.string.reminder_menu_on,
                 String.format(Locale.US, "%02d:%02d", store.reminderHour, store.reminderMinute)
@@ -198,29 +237,7 @@ class MainActivity : AppCompatActivity() {
         } else {
             getString(R.string.reminder_menu_off)
         }
-        val items = arrayOf(
-            getString(R.string.stats_title),
-            getString(R.string.weight_menu),
-            getString(R.string.products_title),
-            reminderLabel,
-            getString(R.string.export_data),
-            getString(R.string.import_data),
-            getString(R.string.check_updates)
-        )
-        AlertDialog.Builder(this)
-            .setItems(items) { _, which ->
-                when (which) {
-                    0 -> startActivity(Intent(this, StatsActivity::class.java))
-                    1 -> startActivity(Intent(this, WeightActivity::class.java))
-                    2 -> startActivity(Intent(this, ProductsActivity::class.java))
-                    3 -> showReminderDialog()
-                    4 -> exportLauncher.launch("calories-backup-${LocalDate.now()}.json")
-                    5 -> confirmImport()
-                    6 -> checkForUpdateManually()
-                }
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+        navView.menu.findItem(R.id.menu_reminder).title = "⏰ $label"
     }
 
     // ---------- Обновления ----------
@@ -289,6 +306,7 @@ class MainActivity : AppCompatActivity() {
                     1 -> {
                         store.reminderEnabled = false
                         ReminderScheduler.cancel(this)
+                        refreshReminderMenuItem()
                         Toast.makeText(this, R.string.reminder_disabled, Toast.LENGTH_SHORT).show()
                     }
                 }
@@ -306,6 +324,7 @@ class MainActivity : AppCompatActivity() {
                 store.reminderMinute = minute
                 store.reminderEnabled = true
                 ReminderScheduler.schedule(this)
+                refreshReminderMenuItem()
                 Toast.makeText(
                     this,
                     getString(
@@ -579,23 +598,26 @@ class MainActivity : AppCompatActivity() {
 
     // ---------- Сводка дня ----------
 
-    private fun macroSummaryPart(labelRes: Int, value: Double, goal: Int): String {
-        val label = getString(labelRes)
-        return if (goal > 0) {
-            getString(R.string.macro_with_goal, label, fmt(round1(value)), goal)
+    private fun updateMacroRing(ring: MacroRingView, value: Double, goalGrams: Int) {
+        val sub = if (goalGrams > 0) {
+            getString(R.string.ring_slash, goalGrams)
         } else {
-            getString(R.string.macro_plain, label, fmt(round1(value)))
+            getString(R.string.ring_grams)
         }
+        ring.setData(value, goalGrams.toDouble(), fmt(round1(value)), sub)
     }
 
     private fun refreshSummary() {
         val total = entries.sumOf { it.kcal }
         val goal = store.goal
 
-        totalText.text = getString(R.string.kcal_value, total)
+        kcalRing.setData(
+            total.toDouble(),
+            goal.toDouble(),
+            total.toString(),
+            getString(R.string.ring_of, goal)
+        )
         goalText.text = getString(R.string.goal_value, goal)
-        progressBar.max = goal
-        progressBar.progress = total.coerceAtMost(goal)
 
         val remaining = goal - total
         remainingText.text = if (remaining >= 0) {
@@ -604,11 +626,9 @@ class MainActivity : AppCompatActivity() {
             getString(R.string.exceeded, -remaining)
         }
 
-        macrosText.text = listOf(
-            macroSummaryPart(R.string.protein_label, entries.sumOf { it.protein }, store.goalProtein),
-            macroSummaryPart(R.string.fat_label, entries.sumOf { it.fat }, store.goalFat),
-            macroSummaryPart(R.string.carbs_label, entries.sumOf { it.carbs }, store.goalCarbs)
-        ).joinToString(" • ")
+        updateMacroRing(proteinRing, entries.sumOf { it.protein }, store.goalProtein)
+        updateMacroRing(fatRing, entries.sumOf { it.fat }, store.goalFat)
+        updateMacroRing(carbsRing, entries.sumOf { it.carbs }, store.goalCarbs)
 
         emptyText.visibility = if (entries.isEmpty()) TextView.VISIBLE else TextView.GONE
 
