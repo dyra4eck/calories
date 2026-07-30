@@ -181,6 +181,7 @@ class WeightActivity : AppCompatActivity() {
         val femaleButton = view.findViewById<RadioButton>(R.id.sexFemale)
         val ageInput = view.findViewById<EditText>(R.id.ageInput)
         val heightInput = view.findViewById<EditText>(R.id.heightInput)
+        val proteinInput = view.findViewById<EditText>(R.id.proteinPerKgInput)
         val activitySpinner = view.findViewById<Spinner>(R.id.activitySpinner)
 
         activitySpinner.adapter = ArrayAdapter(
@@ -192,6 +193,7 @@ class WeightActivity : AppCompatActivity() {
         if (store.profileMale) maleButton.isChecked = true else femaleButton.isChecked = true
         if (store.profileAge > 0) ageInput.setText(store.profileAge.toString())
         if (store.profileHeight > 0) heightInput.setText(store.profileHeight.toString())
+        proteinInput.setText(fmt(round1(store.proteinPerKg)))
         activitySpinner.setSelection(store.profileActivity)
 
         AlertDialog.Builder(this)
@@ -208,6 +210,9 @@ class WeightActivity : AppCompatActivity() {
                 store.profileAge = age
                 store.profileHeight = height
                 store.profileActivity = activitySpinner.selectedItemPosition
+                parseNum(proteinInput.text.toString())?.takeIf { it in 0.5..4.0 }?.let {
+                    store.proteinPerKg = it
+                }
                 refresh()
             }
             .setNegativeButton(android.R.string.cancel, null)
@@ -229,10 +234,11 @@ class WeightActivity : AppCompatActivity() {
 
         val bmr = MacroCalculator.bmr(store.profileMale, weight, store.profileHeight, store.profileAge)
         val tdee = MacroCalculator.tdee(bmr, store.profileActivity)
+        val perKg = store.proteinPerKg
         val plans = listOf(
-            MacroCalculator.plan(MacroCalculator.Goal.GAIN, tdee, weight),
-            MacroCalculator.plan(MacroCalculator.Goal.MAINTAIN, tdee, weight),
-            MacroCalculator.plan(MacroCalculator.Goal.LOSE, tdee, weight)
+            MacroCalculator.plan(MacroCalculator.Goal.GAIN, tdee, weight, perKg),
+            MacroCalculator.plan(MacroCalculator.Goal.MAINTAIN, tdee, weight, perKg),
+            MacroCalculator.plan(MacroCalculator.Goal.LOSE, tdee, weight, perKg)
         )
         val titles = listOf(
             getString(R.string.goal_gain),

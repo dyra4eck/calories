@@ -19,12 +19,19 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import android.view.HapticFeedbackConstants
+import android.widget.HorizontalScrollView
+import android.widget.Spinner
 import androidx.core.content.ContextCompat
 import androidx.core.view.GravityCompat
 import androidx.drawerlayout.widget.DrawerLayout
+import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.chip.Chip
+import com.google.android.material.chip.ChipGroup
 import com.google.android.material.navigation.NavigationView
+import com.google.android.material.snackbar.Snackbar
 import com.journeyapps.barcodescanner.ScanContract
 import java.time.LocalDate
 import java.time.LocalTime
@@ -49,6 +56,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var nextDayButton: ImageButton
     private lateinit var drawerLayout: DrawerLayout
     private lateinit var navView: NavigationView
+    private lateinit var proteinPerKgText: TextView
+    private lateinit var waterText: TextView
+    private lateinit var chipScroll: HorizontalScrollView
+    private lateinit var chipGroup: ChipGroup
+    private lateinit var entryList: RecyclerView
 
     private var date: LocalDate = LocalDate.now()
     private val entries = mutableListOf<Entry>()
@@ -109,6 +121,10 @@ class MainActivity : AppCompatActivity() {
         nextDayButton = findViewById(R.id.nextDayButton)
         drawerLayout = findViewById(R.id.drawerLayout)
         navView = findViewById(R.id.navView)
+        proteinPerKgText = findViewById(R.id.proteinPerKgText)
+        waterText = findViewById(R.id.waterText)
+        chipScroll = findViewById(R.id.chipScroll)
+        chipGroup = findViewById(R.id.chipGroup)
 
         proteinRing.setRingColor(ContextCompat.getColor(this, R.color.macro_protein))
         fatRing.setRingColor(ContextCompat.getColor(this, R.color.macro_fat))
@@ -116,14 +132,22 @@ class MainActivity : AppCompatActivity() {
 
         setUpDrawer()
 
-        val list = findViewById<RecyclerView>(R.id.entryList)
+        entryList = findViewById(R.id.entryList)
         adapter = EntryAdapter(
             entries,
             onClick = { position -> showEditEntryDialog(position) },
             onLongClick = { position -> confirmDelete(position) }
         )
-        list.layoutManager = LinearLayoutManager(this)
-        list.adapter = adapter
+        entryList.layoutManager = LinearLayoutManager(this)
+        entryList.adapter = adapter
+        setUpSwipes()
+
+        findViewById<View>(R.id.waterAddButton).setOnClickListener { addWater(250) }
+        waterText.setOnLongClickListener {
+            it.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+            showWaterDialog()
+            true
+        }
 
         findViewById<ImageButton>(R.id.prevDayButton).setOnClickListener { shiftDate(-1) }
         nextDayButton.setOnClickListener { shiftDate(1) }
@@ -177,6 +201,23 @@ class MainActivity : AppCompatActivity() {
                 searchProducts.map { productLabel(it) }
             )
         )
+        refreshChips()
+    }
+
+    /** Чипсы топ-5 частых продуктов — добавление в один тап. */
+    private fun refreshChips() {
+        val top = searchProducts.filter { it.uses > 0 }.take(5)
+        chipGroup.removeAllViews()
+        chipScroll.visibility = if (top.isEmpty()) View.GONE else View.VISIBLE
+        for (product in top) {
+            chipGroup.addView(
+                Chip(this).apply {
+                    text = product.name
+                    isCheckable = false
+                    setOnClickListener { askGrams(product) }
+                }
+            )
+        }
     }
 
     private fun shiftDate(days: Long) {
@@ -186,10 +227,104 @@ class MainActivity : AppCompatActivity() {
         loadDate()
     }
 
+    /** Свайпы по записям: влево — удалить (с отменой), вправо — изменить. */
+    private fun setUpSwipes() {
+        val callback = object : ItemTouchHelper.SimpleCallback(
+            0,
+            ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT
+        ) {
+            override fun getMovementFlags(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder
+            ): Int = if (viewHolder is EntryAdapter.Holder) {
+                super.getMovementFlags(recyclerView, viewHolder)
+            } else {
+                0
+            }
+
+            override fun onMove(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder
+            ) = false
+
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+                val index = adapter.entryIndexAt(viewHolder.bindingAdapterPosition)
+                if (index == null) {
+                    adapter.rebuild()
+                    return
+                }
+                if (direction == ItemTouchHelper.LEFT) {
+                    deleteEntryWithUndo(index)
+                } else {
+                    // Возвращаем строку на место и открываем редактирование
+                    adapter.rebuild()
+                    showEntryDialog(index)
+                }
+            }
+        }
+        ItemTouchHelper(callback).attachToRecyclerView(entryList)
+    }
+
+    private fun deleteEntryWithUndo(index: Int) {
+        if (index !in entries.indices) return
+        val removed = entries.removeAt(index)
+        store.save(date, entries)
+        adapter.rebuild()
+        refreshSummary()
+        Snackbar.make(entryList, getString(R.string.entry_deleted, removed.name), Snackbar.LENGTH_LONG)
+            .setAction(R.string.undo) {
+                entries.add(index.coerceAtMost(entries.size), removed)
+                store.save(date, entries)
+                adapter.rebuild()
+                refreshSummary()
+            }
+            .show()
+    }
+
+    // ---------- Вода ----------
+
+    private fun addWater(ml: Int) {
+        store.setWater(date, store.waterFor(date) + ml)
+        refreshWater()
+    }
+
+    private fun refreshWater() {
+        val ml = store.waterFor(date)
+        waterText.text = getString(
+            R.string.water_line,
+            fmt(round1(ml / 1000.0)),
+            fmt(round1(store.waterGoal / 1000.0))
+        ) + if (ml >= store.waterGoal && store.waterGoal > 0) " ✓" else ""
+    }
+
+    private fun showWaterDialog() {
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER
+            hint = getString(R.string.water_goal_hint)
+            setText(store.waterGoal.toString())
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.water_title)
+            .setView(input)
+            .setPositiveButton(R.string.save) { _, _ ->
+                input.text.toString().trim().toIntOrNull()?.takeIf { it > 0 }?.let {
+                    store.waterGoal = it
+                }
+                refreshWater()
+            }
+            .setNeutralButton(R.string.water_reset) { _, _ ->
+                store.setWater(date, 0)
+                refreshWater()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
     private fun loadDate() {
         entries.clear()
         entries.addAll(store.entriesFor(date))
-        adapter.notifyDataSetChanged()
+        adapter.rebuild()
         dateText.text = if (date == LocalDate.now()) {
             getString(R.string.today)
         } else {
@@ -203,7 +338,7 @@ class MainActivity : AppCompatActivity() {
     private fun addEntry(entry: Entry) {
         entries.add(entry)
         store.save(date, entries)
-        adapter.notifyItemInserted(entries.size - 1)
+        adapter.rebuild()
         refreshSummary()
     }
 
@@ -217,6 +352,7 @@ class MainActivity : AppCompatActivity() {
                 R.id.menu_stats -> startActivity(Intent(this, StatsActivity::class.java))
                 R.id.menu_weight -> startActivity(Intent(this, WeightActivity::class.java))
                 R.id.menu_products -> startActivity(Intent(this, ProductsActivity::class.java))
+                R.id.menu_templates -> showTemplatesDialog()
                 R.id.menu_reminder -> showReminderDialog()
                 R.id.menu_export ->
                     exportLauncher.launch("calories-backup-${LocalDate.now()}.json")
@@ -225,6 +361,86 @@ class MainActivity : AppCompatActivity() {
             }
             true
         }
+    }
+
+    // ---------- Шаблоны дня ----------
+
+    private fun showTemplatesDialog() {
+        val names = store.templateNames()
+        val items = mutableListOf(
+            getString(R.string.copy_yesterday),
+            getString(R.string.save_as_template)
+        )
+        names.mapTo(items) { "📋 $it" }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.templates_title)
+            .setItems(items.toTypedArray()) { _, which ->
+                when {
+                    which == 0 -> copyYesterday()
+                    which == 1 -> askTemplateName()
+                    else -> showTemplateActions(names[which - 2])
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun appendEntries(added: List<Entry>) {
+        entries.addAll(added)
+        store.save(date, entries)
+        adapter.rebuild()
+        refreshSummary()
+        Toast.makeText(
+            this,
+            getString(R.string.entries_added, added.size),
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
+    private fun copyYesterday() {
+        val yesterday = store.entriesFor(date.minusDays(1))
+        if (yesterday.isEmpty()) {
+            Toast.makeText(this, R.string.yesterday_empty, Toast.LENGTH_SHORT).show()
+            return
+        }
+        appendEntries(yesterday)
+    }
+
+    private fun askTemplateName() {
+        if (entries.isEmpty()) {
+            Toast.makeText(this, R.string.template_day_empty, Toast.LENGTH_SHORT).show()
+            return
+        }
+        val input = EditText(this).apply { hint = getString(R.string.template_name_hint) }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.save_as_template)
+            .setView(input)
+            .setPositiveButton(R.string.save) { _, _ ->
+                val name = input.text.toString().trim()
+                if (name.isEmpty()) {
+                    Toast.makeText(this, R.string.name_required, Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                store.saveTemplate(name, entries)
+                Toast.makeText(this, R.string.template_saved, Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun showTemplateActions(name: String) {
+        AlertDialog.Builder(this)
+            .setTitle(name)
+            .setItems(
+                arrayOf(getString(R.string.template_apply), getString(R.string.delete))
+            ) { _, which ->
+                when (which) {
+                    0 -> appendEntries(store.templateEntries(name))
+                    1 -> store.deleteTemplate(name)
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     /** Пункт «Напоминание» показывает текущее состояние. */
@@ -501,6 +717,17 @@ class MainActivity : AppCompatActivity() {
         val view = LayoutInflater.from(this).inflate(R.layout.dialog_food, null)
         view.findViewById<TextView>(R.id.foodSubtitle).visibility = View.GONE
 
+        val mealSpinner = view.findViewById<Spinner>(R.id.foodMeal)
+        mealSpinner.visibility = View.VISIBLE
+        mealSpinner.adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_dropdown_item,
+            resources.getStringArray(R.array.meals)
+        )
+        mealSpinner.setSelection(
+            existing?.meal ?: mealForTime(LocalTime.now().format(timeFormat))
+        )
+
         val nameInput = view.findViewById<EditText>(R.id.foodName)
         val kcalInput = view.findViewById<EditText>(R.id.foodKcal)
         val proteinInput = view.findViewById<EditText>(R.id.foodProtein)
@@ -531,14 +758,15 @@ class MainActivity : AppCompatActivity() {
                     time = existing?.time ?: LocalTime.now().format(timeFormat),
                     protein = parseNum(proteinInput.text.toString()) ?: 0.0,
                     fat = parseNum(fatInput.text.toString()) ?: 0.0,
-                    carbs = parseNum(carbsInput.text.toString()) ?: 0.0
+                    carbs = parseNum(carbsInput.text.toString()) ?: 0.0,
+                    meal = mealSpinner.selectedItemPosition
                 )
                 if (position == null) {
                     addEntry(entry)
                 } else {
                     entries[position] = entry
                     store.save(date, entries)
-                    adapter.notifyItemChanged(position)
+                    adapter.rebuild()
                     refreshSummary()
                 }
             }
@@ -555,7 +783,7 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton(R.string.delete) { _, _ ->
                 entries.removeAt(position)
                 store.save(date, entries)
-                adapter.notifyItemRemoved(position)
+                adapter.rebuild()
                 refreshSummary()
             }
             .setNegativeButton(android.R.string.cancel, null)
@@ -630,8 +858,27 @@ class MainActivity : AppCompatActivity() {
         updateMacroRing(fatRing, entries.sumOf { it.fat }, store.goalFat)
         updateMacroRing(carbsRing, entries.sumOf { it.carbs }, store.goalCarbs)
 
+        refreshProteinPerKg()
+        refreshWater()
+
         emptyText.visibility = if (entries.isEmpty()) TextView.VISIBLE else TextView.GONE
 
         WidgetProvider.updateAll(this)
+    }
+
+    /** «Белок: 1,4 г/кг • цель 2 г/кг» — ключевая метрика на массе. */
+    private fun refreshProteinPerKg() {
+        val weight = store.currentWeight()
+        if (weight == null || weight <= 0) {
+            proteinPerKgText.visibility = View.GONE
+            return
+        }
+        proteinPerKgText.visibility = View.VISIBLE
+        val perKg = round1(entries.sumOf { it.protein } / weight)
+        proteinPerKgText.text = getString(
+            R.string.protein_per_kg_line,
+            fmt(perKg),
+            fmt(round1(store.proteinPerKg))
+        )
     }
 }

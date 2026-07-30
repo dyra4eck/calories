@@ -43,6 +43,14 @@
         android:inputType="number"
         android:maxLines="1" />
 
+    <EditText
+        android:id="@+id/proteinPerKgInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/protein_per_kg_hint"
+        android:inputType="numberDecimal"
+        android:maxLines="1" />
+
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

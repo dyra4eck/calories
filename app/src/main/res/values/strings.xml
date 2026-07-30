@@ -84,6 +84,34 @@
     <string name="online_error">Нет соединения с общей базой продуктов</string>
     <string name="search_word">Найти</string>
 
+    <!-- Приёмы пищи, вода, шаблоны -->
+    <string name="entry_deleted">Удалено: %s</string>
+    <string name="undo">Вернуть</string>
+    <string name="water_line">💧 Вода: %1$s / %2$s л</string>
+    <string name="water_add">+250 мл</string>
+    <string name="water_title">Вода</string>
+    <string name="water_goal_hint">Дневная норма, мл</string>
+    <string name="water_reset">Сбросить день</string>
+    <string name="protein_per_kg_line">Белок: %1$s г/кг • цель %2$s г/кг</string>
+    <string name="menu_templates">📋 Шаблоны дня</string>
+    <string name="templates_title">Шаблоны дня</string>
+    <string name="copy_yesterday">↩️ Повторить вчерашний день</string>
+    <string name="save_as_template">💾 Сохранить день как шаблон</string>
+    <string name="template_name_hint">Название шаблона</string>
+    <string name="template_saved">Шаблон сохранён</string>
+    <string name="template_apply">Добавить в текущий день</string>
+    <string name="template_day_empty">Сегодня нет записей — нечего сохранять</string>
+    <string name="yesterday_empty">За вчера нет записей</string>
+    <string name="entries_added">Добавлено записей: %d</string>
+    <string name="protein_per_kg_hint">Белок, г/кг веса</string>
+
+    <string-array name="meals">
+        <item>🍳 Завтрак</item>
+        <item>🍲 Обед</item>
+        <item>🍽 Ужин</item>
+        <item>🥜 Перекус</item>
+    </string-array>
+
     <!-- Вес и параметры тела -->
     <string name="weight_screen_title">Вес и параметры</string>
     <string name="weight_menu">Вес и параметры</string>

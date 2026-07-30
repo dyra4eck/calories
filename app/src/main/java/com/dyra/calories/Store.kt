@@ -100,31 +100,28 @@ class Store(context: Context) {
         prefs.edit().putString("weights", obj.toString()).apply()
     }
 
-    fun entriesFor(date: LocalDate): MutableList<Entry> {
-        val raw = prefs.getString(key(date), null) ?: return mutableListOf()
-        val array = JSONArray(raw)
+    private fun entriesFromJson(array: JSONArray): MutableList<Entry> {
         val list = mutableListOf<Entry>()
         for (i in 0 until array.length()) {
             val obj = array.getJSONObject(i)
+            val time = obj.optString("time")
             list.add(
                 Entry(
                     name = obj.optString("name"),
                     kcal = obj.optInt("kcal"),
-                    time = obj.optString("time"),
+                    time = time,
                     protein = obj.optDouble("protein", 0.0),
                     fat = obj.optDouble("fat", 0.0),
-                    carbs = obj.optDouble("carbs", 0.0)
+                    carbs = obj.optDouble("carbs", 0.0),
+                    // У старых записей приёма пищи нет — определяем по времени
+                    meal = if (obj.has("meal")) obj.getInt("meal") else mealForTime(time)
                 )
             )
         }
         return list
     }
 
-    fun save(date: LocalDate, entries: List<Entry>) {
-        if (entries.isEmpty()) {
-            prefs.edit().remove(key(date)).apply()
-            return
-        }
+    private fun entriesToJson(entries: List<Entry>): JSONArray {
         val array = JSONArray()
         for (entry in entries) {
             array.put(
@@ -135,9 +132,70 @@ class Store(context: Context) {
                     .put("protein", entry.protein)
                     .put("fat", entry.fat)
                     .put("carbs", entry.carbs)
+                    .put("meal", entry.meal)
             )
         }
-        prefs.edit().putString(key(date), array.toString()).apply()
+        return array
+    }
+
+    fun entriesFor(date: LocalDate): MutableList<Entry> {
+        val raw = prefs.getString(key(date), null) ?: return mutableListOf()
+        return entriesFromJson(JSONArray(raw))
+    }
+
+    fun save(date: LocalDate, entries: List<Entry>) {
+        if (entries.isEmpty()) {
+            prefs.edit().remove(key(date)).apply()
+            return
+        }
+        prefs.edit().putString(key(date), entriesToJson(entries).toString()).apply()
+    }
+
+    // ---------- Вода ----------
+
+    /** Дневная норма воды в мл. */
+    var waterGoal: Int
+        get() = prefs.getInt("water_goal", 2000)
+        set(value) = prefs.edit().putInt("water_goal", value).apply()
+
+    fun waterFor(date: LocalDate): Int = prefs.getInt("water_$date", 0)
+
+    fun setWater(date: LocalDate, ml: Int) {
+        if (ml <= 0) {
+            prefs.edit().remove("water_$date").apply()
+        } else {
+            prefs.edit().putInt("water_$date", ml).apply()
+        }
+    }
+
+    /** Норма белка в г/кг веса — для индикатора и калькулятора КБЖУ. */
+    var proteinPerKg: Double
+        get() = prefs.getFloat("protein_per_kg", 1.8f).toDouble()
+        set(value) = prefs.edit().putFloat("protein_per_kg", value.toFloat()).apply()
+
+    // ---------- Шаблоны дня ----------
+
+    fun templateNames(): List<String> {
+        val obj = JSONObject(prefs.getString("templates", null) ?: return emptyList())
+        return obj.keys().asSequence().toList().sorted()
+    }
+
+    fun saveTemplate(name: String, entries: List<Entry>) {
+        val obj = JSONObject(prefs.getString("templates", null) ?: "{}")
+        obj.put(name, entriesToJson(entries))
+        prefs.edit().putString("templates", obj.toString()).apply()
+    }
+
+    fun templateEntries(name: String): List<Entry> {
+        val obj = JSONObject(prefs.getString("templates", null) ?: return emptyList())
+        val array = obj.optJSONArray(name) ?: return emptyList()
+        return entriesFromJson(array)
+    }
+
+    fun deleteTemplate(name: String) {
+        val obj = JSONObject(prefs.getString("templates", null) ?: return)
+        obj.remove(name)
+        prefs.edit().putString("templates", obj.toString()).apply()
     }
 
     fun products(): MutableList<Product> {
@@ -190,12 +248,20 @@ class Store(context: Context) {
     /** Полный дамп данных (цели, продукты, записи по дням) в JSON. */
     fun exportJson(): String {
         val days = JSONObject()
+        val water = JSONObject()
         for ((key, value) in prefs.all) {
             if (key.startsWith("entries_") && value is String) {
                 days.put(key.removePrefix("entries_"), JSONArray(value))
             }
+            if (key.startsWith("water_") && key != "water_goal" && value is Int) {
+                water.put(key.removePrefix("water_"), value)
+            }
         }
         return JSONObject()
+            .put("waterGoal", waterGoal)
+            .put("proteinPerKg", proteinPerKg)
+            .put("water", water)
+            .put("templates", JSONObject(prefs.getString("templates", "{}")))
             .put("goal", goal)
             .put("goalProtein", goalProtein)
             .put("goalFat", goalFat)
@@ -242,6 +308,14 @@ class Store(context: Context) {
             editor.putInt("profile_activity", profile.optInt("activity", 2))
         }
         root.optJSONObject("weights")?.let { editor.putString("weights", it.toString()) }
+        editor.putInt("water_goal", root.optInt("waterGoal", 2000))
+        editor.putFloat("protein_per_kg", root.optDouble("proteinPerKg", 1.8).toFloat())
+        root.optJSONObject("water")?.let { water ->
+            for (key in water.keys()) {
+                editor.putInt("water_$key", water.getInt(key))
+            }
+        }
+        root.optJSONObject("templates")?.let { editor.putString("templates", it.toString()) }
         productsValue?.let { editor.putString("products", it.toString()) }
         daysValue?.let { days ->
             for (key in days.keys()) {

@@ -11,6 +11,9 @@
             android:id="@+id/menu_products"
             android:title="@string/menu_products" />
         <item
+            android:id="@+id/menu_templates"
+            android:title="@string/menu_templates" />
+        <item
             android:id="@+id/menu_reminder"
             android:title="@string/menu_reminder" />
         <item

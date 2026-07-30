@@ -30,29 +30,36 @@ object MacroCalculator {
     fun tdee(bmr: Double, activityIndex: Int): Double =
         bmr * ACTIVITY_FACTORS[activityIndex.coerceIn(0, ACTIVITY_FACTORS.lastIndex)]
 
-    fun plan(goal: Goal, tdee: Double, weightKg: Double): Plan {
+    /** customProteinPerKg > 0 заменяет норму белка по умолчанию для цели. */
+    fun plan(
+        goal: Goal,
+        tdee: Double,
+        weightKg: Double,
+        customProteinPerKg: Double = 0.0
+    ): Plan {
         val kcal: Double
-        val proteinPerKg: Double
+        val defaultProteinPerKg: Double
         val fatPerKg: Double
         when (goal) {
             // Профицит ~12% и повышенный белок для роста мышц
             Goal.GAIN -> {
                 kcal = tdee * 1.12
-                proteinPerKg = 1.8
+                defaultProteinPerKg = 1.8
                 fatPerKg = 1.0
             }
             Goal.MAINTAIN -> {
                 kcal = tdee
-                proteinPerKg = 1.6
+                defaultProteinPerKg = 1.6
                 fatPerKg = 1.0
             }
             // Дефицит ~15%; белок выше, чтобы сохранить мышцы
             Goal.LOSE -> {
                 kcal = tdee * 0.85
-                proteinPerKg = 2.0
+                defaultProteinPerKg = 2.0
                 fatPerKg = 0.8
             }
         }
+        val proteinPerKg = if (customProteinPerKg > 0) customProteinPerKg else defaultProteinPerKg
         val protein = (proteinPerKg * weightKg).roundToInt()
         val fat = (fatPerKg * weightKg).roundToInt()
         val carbs = ((kcal - protein * 4 - fat * 9) / 4).roundToInt().coerceAtLeast(0)

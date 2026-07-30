@@ -17,6 +17,13 @@
             android:textColor="?attr/colorPrimary"
             android:textSize="14sp" />
 
+        <!-- Приём пищи — показывается только в диалоге записи дневника -->
+        <Spinner
+            android:id="@+id/foodMeal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone" />
+
         <EditText
             android:id="@+id/foodName"
             android:layout_width="match_parent"
