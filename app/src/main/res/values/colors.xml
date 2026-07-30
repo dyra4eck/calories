@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#2E7D32</color>
+
+    <!-- Экран сканера -->
+    <color name="scanner_laser">#66BB6A</color>
+    <color name="scanner_mask">#99000000</color>
+    <color name="scanner_dots">#8066BB6A</color>
 </resources>

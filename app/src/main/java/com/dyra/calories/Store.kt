@@ -39,6 +39,67 @@ class Store(context: Context) {
         get() = prefs.getInt("reminder_minute", 0)
         set(value) = prefs.edit().putInt("reminder_minute", value).apply()
 
+    /** Когда в последний раз тихо проверяли обновления (мс с эпохи). */
+    var updateCheckedAt: Long
+        get() = prefs.getLong("update_checked_at", 0L)
+        set(value) = prefs.edit().putLong("update_checked_at", value).apply()
+
+    // ---------- Вес и параметры тела ----------
+
+    /** Целевой вес в кг; 0 — не задан. */
+    var targetWeight: Double
+        get() = prefs.getFloat("target_weight", 0f).toDouble()
+        set(value) = prefs.edit().putFloat("target_weight", value.toFloat()).apply()
+
+    var profileMale: Boolean
+        get() = prefs.getBoolean("profile_male", true)
+        set(value) = prefs.edit().putBoolean("profile_male", value).apply()
+
+    /** Возраст в годах; 0 — профиль не заполнен. */
+    var profileAge: Int
+        get() = prefs.getInt("profile_age", 0)
+        set(value) = prefs.edit().putInt("profile_age", value).apply()
+
+    /** Рост в см; 0 — профиль не заполнен. */
+    var profileHeight: Int
+        get() = prefs.getInt("profile_height", 0)
+        set(value) = prefs.edit().putInt("profile_height", value).apply()
+
+    /** Индекс уровня активности (см. MacroCalculator.ACTIVITY_FACTORS). */
+    var profileActivity: Int
+        get() = prefs.getInt("profile_activity", 2)
+        set(value) = prefs.edit().putInt("profile_activity", value).apply()
+
+    /** Записи веса по датам, отсортированы от старых к новым. */
+    fun weights(): List<Pair<LocalDate, Double>> {
+        val raw = prefs.getString("weights", null) ?: return emptyList()
+        val obj = JSONObject(raw)
+        val list = mutableListOf<Pair<LocalDate, Double>>()
+        for (key in obj.keys()) {
+            try {
+                list.add(LocalDate.parse(key) to obj.getDouble(key))
+            } catch (e: Exception) {
+                // Битую запись пропускаем
+            }
+        }
+        return list.sortedBy { it.first }
+    }
+
+    /** Последняя запись веса — текущий вес; null, если записей нет. */
+    fun currentWeight(): Double? = weights().lastOrNull()?.second
+
+    fun setWeight(date: LocalDate, kg: Double) {
+        val obj = JSONObject(prefs.getString("weights", null) ?: "{}")
+        obj.put(date.toString(), kg)
+        prefs.edit().putString("weights", obj.toString()).apply()
+    }
+
+    fun removeWeight(date: LocalDate) {
+        val obj = JSONObject(prefs.getString("weights", null) ?: "{}")
+        obj.remove(date.toString())
+        prefs.edit().putString("weights", obj.toString()).apply()
+    }
+
     fun entriesFor(date: LocalDate): MutableList<Entry> {
         val raw = prefs.getString(key(date), null) ?: return mutableListOf()
         val array = JSONArray(raw)
@@ -139,6 +200,16 @@ class Store(context: Context) {
             .put("goalProtein", goalProtein)
             .put("goalFat", goalFat)
             .put("goalCarbs", goalCarbs)
+            .put("targetWeight", targetWeight)
+            .put(
+                "profile",
+                JSONObject()
+                    .put("male", profileMale)
+                    .put("age", profileAge)
+                    .put("height", profileHeight)
+                    .put("activity", profileActivity)
+            )
+            .put("weights", JSONObject(prefs.getString("weights", "{}")))
             .put("products", JSONArray(prefs.getString("products", "[]")))
             .put("days", days)
             .toString(2)
@@ -163,6 +234,14 @@ class Store(context: Context) {
         editor.putBoolean("reminder_on", reminderOn)
         editor.putInt("reminder_hour", reminderH)
         editor.putInt("reminder_minute", reminderM)
+        editor.putFloat("target_weight", root.optDouble("targetWeight", 0.0).toFloat())
+        root.optJSONObject("profile")?.let { profile ->
+            editor.putBoolean("profile_male", profile.optBoolean("male", true))
+            editor.putInt("profile_age", profile.optInt("age", 0))
+            editor.putInt("profile_height", profile.optInt("height", 0))
+            editor.putInt("profile_activity", profile.optInt("activity", 2))
+        }
+        root.optJSONObject("weights")?.let { editor.putString("weights", it.toString()) }
         productsValue?.let { editor.putString("products", it.toString()) }
         daysValue?.let { days ->
             for (key in days.keys()) {
