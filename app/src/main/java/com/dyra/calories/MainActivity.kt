@@ -200,6 +200,7 @@ class MainActivity : AppCompatActivity() {
         }
         val items = arrayOf(
             getString(R.string.stats_title),
+            getString(R.string.weight_menu),
             getString(R.string.products_title),
             reminderLabel,
             getString(R.string.export_data),
@@ -210,11 +211,12 @@ class MainActivity : AppCompatActivity() {
             .setItems(items) { _, which ->
                 when (which) {
                     0 -> startActivity(Intent(this, StatsActivity::class.java))
-                    1 -> startActivity(Intent(this, ProductsActivity::class.java))
-                    2 -> showReminderDialog()
-                    3 -> exportLauncher.launch("calories-backup-${LocalDate.now()}.json")
-                    4 -> confirmImport()
-                    5 -> checkForUpdateManually()
+                    1 -> startActivity(Intent(this, WeightActivity::class.java))
+                    2 -> startActivity(Intent(this, ProductsActivity::class.java))
+                    3 -> showReminderDialog()
+                    4 -> exportLauncher.launch("calories-backup-${LocalDate.now()}.json")
+                    5 -> confirmImport()
+                    6 -> checkForUpdateManually()
                 }
             }
             .setNegativeButton(android.R.string.cancel, null)
