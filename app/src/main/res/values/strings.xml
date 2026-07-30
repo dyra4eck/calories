@@ -39,7 +39,7 @@
     <string name="delete">Удалить</string>
     <string name="edit_entry">Изменить запись</string>
     <string name="goal_title">Цели на день</string>
-    <string name="goals_hint">Калории обязательны; БЖУ — по желанию (пусто или 0 — без цели).</string>
+    <string name="goals_hint">Калории обязательны; БЖУ — по желанию (пусто или 0 — без цели). Пустые калории тренировочного профиля отключают его — в дни тренировок действуют обычные цели.</string>
     <string name="protein_label">Белки:</string>
     <string name="fat_label">Жиры:</string>
     <string name="carbs_label">Углеводы:</string>
@@ -104,6 +104,13 @@
     <string name="yesterday_empty">За вчера нет записей</string>
     <string name="entries_added">Добавлено записей: %d</string>
     <string name="protein_per_kg_hint">Белок, г/кг веса</string>
+    <string name="train_day_on">Сегодня — тренировочный день 🏋️</string>
+    <string name="train_day_off">Тренировочный день снят</string>
+    <string name="goal_profile_normal">Обычный день</string>
+    <string name="goal_profile_train">Тренировочный</string>
+    <string name="apply_normal_days">Обычные дни</string>
+    <string name="apply_train_days">Тренировочные</string>
+    <string name="menu_csv">📄 Экспорт дневника в CSV</string>
 
     <string-array name="meals">
         <item>🍳 Завтрак</item>

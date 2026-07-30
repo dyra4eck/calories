@@ -52,6 +52,15 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/next_day"
                 android:src="@android:drawable/ic_media_next" />
+
+            <TextView
+                android:id="@+id/trainDayButton"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:gravity="center"
+                android:text="🏋️"
+                android:textSize="22sp" />
         </LinearLayout>
 
         <!-- Сводка дня: кольцо калорий -->

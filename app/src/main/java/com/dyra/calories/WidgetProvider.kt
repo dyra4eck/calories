@@ -37,13 +37,14 @@ class WidgetProvider : AppWidgetProvider() {
 
         private fun update(context: Context, manager: AppWidgetManager, id: Int) {
             val store = Store(context)
-            val entries = store.entriesFor(LocalDate.now())
+            val today = LocalDate.now()
+            val entries = store.entriesFor(today)
             val total = entries.sumOf { it.kcal }
 
             val views = RemoteViews(context.packageName, R.layout.widget)
             views.setTextViewText(
                 R.id.widgetKcal,
-                context.getString(R.string.widget_kcal, total, store.goal)
+                context.getString(R.string.widget_kcal, total, store.goalsFor(today).kcal)
             )
             views.setTextViewText(
                 R.id.widgetMacros,

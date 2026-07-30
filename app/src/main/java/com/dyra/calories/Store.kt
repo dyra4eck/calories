@@ -27,6 +27,44 @@ class Store(context: Context) {
         get() = prefs.getInt("goal_carbs", 0)
         set(value) = prefs.edit().putInt("goal_carbs", value).apply()
 
+    // Цели тренировочного дня; kcal == 0 — не заданы, действуют обычные
+    var goalTrain: Int
+        get() = prefs.getInt("goal_train", 0)
+        set(value) = prefs.edit().putInt("goal_train", value).apply()
+
+    var goalTrainProtein: Int
+        get() = prefs.getInt("goal_train_protein", 0)
+        set(value) = prefs.edit().putInt("goal_train_protein", value).apply()
+
+    var goalTrainFat: Int
+        get() = prefs.getInt("goal_train_fat", 0)
+        set(value) = prefs.edit().putInt("goal_train_fat", value).apply()
+
+    var goalTrainCarbs: Int
+        get() = prefs.getInt("goal_train_carbs", 0)
+        set(value) = prefs.edit().putInt("goal_train_carbs", value).apply()
+
+    fun isTrainingDay(date: LocalDate): Boolean {
+        val raw = prefs.getString("train_days", null) ?: return false
+        return JSONObject(raw).optBoolean(date.toString(), false)
+    }
+
+    fun setTrainingDay(date: LocalDate, on: Boolean) {
+        val obj = JSONObject(prefs.getString("train_days", null) ?: "{}")
+        if (on) obj.put(date.toString(), true) else obj.remove(date.toString())
+        prefs.edit().putString("train_days", obj.toString()).apply()
+    }
+
+    data class Goals(val kcal: Int, val protein: Int, val fat: Int, val carbs: Int)
+
+    /** Цели на конкретный день: в тренировочный — свой профиль, если задан. */
+    fun goalsFor(date: LocalDate): Goals =
+        if (isTrainingDay(date) && goalTrain > 0) {
+            Goals(goalTrain, goalTrainProtein, goalTrainFat, goalTrainCarbs)
+        } else {
+            Goals(goal, goalProtein, goalFat, goalCarbs)
+        }
+
     var reminderEnabled: Boolean
         get() = prefs.getBoolean("reminder_on", false)
         set(value) = prefs.edit().putBoolean("reminder_on", value).apply()
@@ -262,6 +300,11 @@ class Store(context: Context) {
             .put("proteinPerKg", proteinPerKg)
             .put("water", water)
             .put("templates", JSONObject(prefs.getString("templates", "{}")))
+            .put("goalTrain", goalTrain)
+            .put("goalTrainProtein", goalTrainProtein)
+            .put("goalTrainFat", goalTrainFat)
+            .put("goalTrainCarbs", goalTrainCarbs)
+            .put("trainDays", JSONObject(prefs.getString("train_days", "{}")))
             .put("goal", goal)
             .put("goalProtein", goalProtein)
             .put("goalFat", goalFat)
@@ -316,6 +359,11 @@ class Store(context: Context) {
             }
         }
         root.optJSONObject("templates")?.let { editor.putString("templates", it.toString()) }
+        editor.putInt("goal_train", root.optInt("goalTrain", 0))
+        editor.putInt("goal_train_protein", root.optInt("goalTrainProtein", 0))
+        editor.putInt("goal_train_fat", root.optInt("goalTrainFat", 0))
+        editor.putInt("goal_train_carbs", root.optInt("goalTrainCarbs", 0))
+        root.optJSONObject("trainDays")?.let { editor.putString("train_days", it.toString()) }
         productsValue?.let { editor.putString("products", it.toString()) }
         daysValue?.let { days ->
             for (key in days.keys()) {
@@ -323,6 +371,44 @@ class Store(context: Context) {
             }
         }
         editor.apply()
+    }
+
+    /**
+     * Дневник в CSV (разделитель «;», как ждёт русский Excel):
+     * дата, КБЖУ за день, вода, вес, тренировочный день.
+     */
+    fun exportCsv(): String {
+        val dates = sortedSetOf<LocalDate>()
+        for (key in prefs.all.keys) {
+            val dateString = when {
+                key.startsWith("entries_") -> key.removePrefix("entries_")
+                key.startsWith("water_") && key != "water_goal" -> key.removePrefix("water_")
+                else -> null
+            }
+            dateString?.let {
+                try {
+                    dates.add(LocalDate.parse(it))
+                } catch (e: Exception) {
+                    // Не дата — пропускаем
+                }
+            }
+        }
+        dates.addAll(weights().map { it.first })
+
+        val weightByDate = weights().toMap()
+        val sb = StringBuilder("Дата;Ккал;Белки;Жиры;Углеводы;Вода (мл);Вес (кг);Тренировка\n")
+        for (date in dates) {
+            val entries = entriesFor(date)
+            sb.append(date).append(';')
+                .append(entries.sumOf { it.kcal }).append(';')
+                .append(fmt(round1(entries.sumOf { it.protein }))).append(';')
+                .append(fmt(round1(entries.sumOf { it.fat }))).append(';')
+                .append(fmt(round1(entries.sumOf { it.carbs }))).append(';')
+                .append(waterFor(date)).append(';')
+                .append(weightByDate[date]?.let { fmt(it) } ?: "").append(';')
+                .append(if (isTrainingDay(date)) 1 else 0).append('\n')
+        }
+        return sb.toString()
     }
 
     private fun key(date: LocalDate) = "entries_$date"

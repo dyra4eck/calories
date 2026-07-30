@@ -20,6 +20,9 @@
             android:id="@+id/menu_export"
             android:title="@string/menu_export" />
         <item
+            android:id="@+id/menu_csv"
+            android:title="@string/menu_csv" />
+        <item
             android:id="@+id/menu_import"
             android:title="@string/menu_import" />
         <item

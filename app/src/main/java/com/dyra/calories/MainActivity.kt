@@ -58,6 +58,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var navView: NavigationView
     private lateinit var proteinPerKgText: TextView
     private lateinit var waterText: TextView
+    private lateinit var trainDayButton: TextView
     private lateinit var chipScroll: HorizontalScrollView
     private lateinit var chipGroup: ChipGroup
     private lateinit var entryList: RecyclerView
@@ -79,6 +80,21 @@ class MainActivity : AppCompatActivity() {
             try {
                 contentResolver.openOutputStream(uri)?.use { stream ->
                     stream.write(store.exportJson().toByteArray())
+                }
+                Toast.makeText(this, R.string.export_done, Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(this, R.string.export_error, Toast.LENGTH_SHORT).show()
+            }
+        }
+
+    private val csvLauncher =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+            if (uri == null) return@registerForActivityResult
+            try {
+                contentResolver.openOutputStream(uri)?.use { stream ->
+                    // BOM, чтобы Excel понял UTF-8
+                    stream.write(byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()))
+                    stream.write(store.exportCsv().toByteArray())
                 }
                 Toast.makeText(this, R.string.export_done, Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
@@ -143,6 +159,18 @@ class MainActivity : AppCompatActivity() {
         setUpSwipes()
 
         findViewById<View>(R.id.waterAddButton).setOnClickListener { addWater(250) }
+        trainDayButton = findViewById(R.id.trainDayButton)
+        trainDayButton.setOnClickListener {
+            val newState = !store.isTrainingDay(date)
+            store.setTrainingDay(date, newState)
+            Toast.makeText(
+                this,
+                if (newState) R.string.train_day_on else R.string.train_day_off,
+                Toast.LENGTH_SHORT
+            ).show()
+            refreshTrainToggle()
+            refreshSummary()
+        }
         waterText.setOnLongClickListener {
             it.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
             showWaterDialog()
@@ -332,7 +360,12 @@ class MainActivity : AppCompatActivity() {
         }
         nextDayButton.isEnabled = date.isBefore(LocalDate.now())
         nextDayButton.alpha = if (nextDayButton.isEnabled) 1f else 0.3f
+        refreshTrainToggle()
         refreshSummary()
+    }
+
+    private fun refreshTrainToggle() {
+        trainDayButton.alpha = if (store.isTrainingDay(date)) 1f else 0.25f
     }
 
     private fun addEntry(entry: Entry) {
@@ -356,6 +389,7 @@ class MainActivity : AppCompatActivity() {
                 R.id.menu_reminder -> showReminderDialog()
                 R.id.menu_export ->
                     exportLauncher.launch("calories-backup-${LocalDate.now()}.json")
+                R.id.menu_csv -> csvLauncher.launch("calories-${LocalDate.now()}.csv")
                 R.id.menu_import -> confirmImport()
                 R.id.menu_updates -> checkForUpdateManually()
             }
@@ -792,32 +826,63 @@ class MainActivity : AppCompatActivity() {
 
     // ---------- Цели ----------
 
-    /** Диалог целей: калории и (опционально) БЖУ. */
+    /** Диалог целей: калории и БЖУ, отдельно для обычного и тренировочного дня. */
     private fun editGoals() {
         val view = LayoutInflater.from(this).inflate(R.layout.dialog_goals, null)
+        val profileGroup = view.findViewById<android.widget.RadioGroup>(R.id.goalProfileGroup)
         val kcalInput = view.findViewById<EditText>(R.id.goalKcal)
         val proteinInput = view.findViewById<EditText>(R.id.goalProtein)
         val fatInput = view.findViewById<EditText>(R.id.goalFat)
         val carbsInput = view.findViewById<EditText>(R.id.goalCarbs)
 
-        kcalInput.setText(store.goal.toString())
-        if (store.goalProtein > 0) proteinInput.setText(store.goalProtein.toString())
-        if (store.goalFat > 0) fatInput.setText(store.goalFat.toString())
-        if (store.goalCarbs > 0) carbsInput.setText(store.goalCarbs.toString())
+        fun loadProfile(train: Boolean) {
+            val kcal = if (train) store.goalTrain else store.goal
+            val protein = if (train) store.goalTrainProtein else store.goalProtein
+            val fat = if (train) store.goalTrainFat else store.goalFat
+            val carbs = if (train) store.goalTrainCarbs else store.goalCarbs
+            kcalInput.setText(if (kcal > 0) kcal.toString() else "")
+            proteinInput.setText(if (protein > 0) protein.toString() else "")
+            fatInput.setText(if (fat > 0) fat.toString() else "")
+            carbsInput.setText(if (carbs > 0) carbs.toString() else "")
+        }
+
+        val startTrain = store.isTrainingDay(date)
+        profileGroup.check(if (startTrain) R.id.goalProfileTrain else R.id.goalProfileNormal)
+        loadProfile(startTrain)
+        profileGroup.setOnCheckedChangeListener { _, checkedId ->
+            loadProfile(checkedId == R.id.goalProfileTrain)
+        }
 
         AlertDialog.Builder(this)
             .setTitle(R.string.goal_title)
             .setView(view)
             .setPositiveButton(R.string.save) { _, _ ->
+                val train = profileGroup.checkedRadioButtonId == R.id.goalProfileTrain
                 val goal = kcalInput.text.toString().trim().toIntOrNull()
                 if (goal == null || goal <= 0) {
-                    Toast.makeText(this, R.string.enter_kcal, Toast.LENGTH_SHORT).show()
+                    if (train) {
+                        // Пустые калории для тренировочного профиля = профиль выключен
+                        store.goalTrain = 0
+                        refreshSummary()
+                    } else {
+                        Toast.makeText(this, R.string.enter_kcal, Toast.LENGTH_SHORT).show()
+                    }
                     return@setPositiveButton
                 }
-                store.goal = goal
-                store.goalProtein = proteinInput.text.toString().trim().toIntOrNull() ?: 0
-                store.goalFat = fatInput.text.toString().trim().toIntOrNull() ?: 0
-                store.goalCarbs = carbsInput.text.toString().trim().toIntOrNull() ?: 0
+                val protein = proteinInput.text.toString().trim().toIntOrNull() ?: 0
+                val fat = fatInput.text.toString().trim().toIntOrNull() ?: 0
+                val carbs = carbsInput.text.toString().trim().toIntOrNull() ?: 0
+                if (train) {
+                    store.goalTrain = goal
+                    store.goalTrainProtein = protein
+                    store.goalTrainFat = fat
+                    store.goalTrainCarbs = carbs
+                } else {
+                    store.goal = goal
+                    store.goalProtein = protein
+                    store.goalFat = fat
+                    store.goalCarbs = carbs
+                }
                 refreshSummary()
             }
             .setNegativeButton(android.R.string.cancel, null)
@@ -837,7 +902,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun refreshSummary() {
         val total = entries.sumOf { it.kcal }
-        val goal = store.goal
+        val goals = store.goalsFor(date)
+        val goal = goals.kcal
 
         kcalRing.setData(
             total.toDouble(),
@@ -845,7 +911,8 @@ class MainActivity : AppCompatActivity() {
             total.toString(),
             getString(R.string.ring_of, goal)
         )
-        goalText.text = getString(R.string.goal_value, goal)
+        goalText.text = getString(R.string.goal_value, goal) +
+            if (store.isTrainingDay(date)) " 🏋️" else ""
 
         val remaining = goal - total
         remainingText.text = if (remaining >= 0) {
@@ -854,9 +921,9 @@ class MainActivity : AppCompatActivity() {
             getString(R.string.exceeded, -remaining)
         }
 
-        updateMacroRing(proteinRing, entries.sumOf { it.protein }, store.goalProtein)
-        updateMacroRing(fatRing, entries.sumOf { it.fat }, store.goalFat)
-        updateMacroRing(carbsRing, entries.sumOf { it.carbs }, store.goalCarbs)
+        updateMacroRing(proteinRing, entries.sumOf { it.protein }, goals.protein)
+        updateMacroRing(fatRing, entries.sumOf { it.fat }, goals.fat)
+        updateMacroRing(carbsRing, entries.sumOf { it.carbs }, goals.carbs)
 
         refreshProteinPerKg()
         refreshWater()

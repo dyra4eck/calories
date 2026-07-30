@@ -260,17 +260,25 @@ class WeightActivity : AppCompatActivity() {
             .show()
     }
 
+    /** Выбор, каким дням назначить рассчитанные цели. */
     private fun confirmApplyGoals(plan: MacroCalculator.Plan) {
         AlertDialog.Builder(this)
             .setTitle(R.string.apply_goals_title)
             .setMessage(
                 getString(R.string.apply_goals_message, plan.kcal, plan.protein, plan.fat, plan.carbs)
             )
-            .setPositiveButton(R.string.save) { _, _ ->
+            .setPositiveButton(R.string.apply_normal_days) { _, _ ->
                 store.goal = plan.kcal
                 store.goalProtein = plan.protein
                 store.goalFat = plan.fat
                 store.goalCarbs = plan.carbs
+                Toast.makeText(this, R.string.goals_applied, Toast.LENGTH_SHORT).show()
+            }
+            .setNeutralButton(R.string.apply_train_days) { _, _ ->
+                store.goalTrain = plan.kcal
+                store.goalTrainProtein = plan.protein
+                store.goalTrainFat = plan.fat
+                store.goalTrainCarbs = plan.carbs
                 Toast.makeText(this, R.string.goals_applied, Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton(android.R.string.cancel, null)
