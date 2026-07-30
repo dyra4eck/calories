@@ -2,6 +2,11 @@
 <resources>
     <color name="ic_launcher_background">#2E7D32</color>
 
+    <!-- Кольца БЖУ (цвета совпадают с легендой статистики) -->
+    <color name="macro_protein">#2E7D32</color>
+    <color name="macro_fat">#F9A825</color>
+    <color name="macro_carbs">#1565C0</color>
+
     <!-- Экран сканера -->
     <color name="scanner_laser">#66BB6A</color>
     <color name="scanner_mask">#99000000</color>
