@@ -21,6 +21,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import android.view.HapticFeedbackConstants
 import android.widget.HorizontalScrollView
+import android.widget.ProgressBar
 import android.widget.Spinner
 import androidx.core.content.ContextCompat
 import androidx.core.view.GravityCompat
@@ -58,6 +59,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var navView: NavigationView
     private lateinit var proteinPerKgText: TextView
     private lateinit var waterText: TextView
+    private lateinit var waterProgress: ProgressBar
     private lateinit var trainDayButton: TextView
     private lateinit var chipScroll: HorizontalScrollView
     private lateinit var chipGroup: ChipGroup
@@ -139,6 +141,7 @@ class MainActivity : AppCompatActivity() {
         navView = findViewById(R.id.navView)
         proteinPerKgText = findViewById(R.id.proteinPerKgText)
         waterText = findViewById(R.id.waterText)
+        waterProgress = findViewById(R.id.waterProgress)
         chipScroll = findViewById(R.id.chipScroll)
         chipGroup = findViewById(R.id.chipGroup)
 
@@ -147,6 +150,7 @@ class MainActivity : AppCompatActivity() {
         carbsRing.setRingColor(ContextCompat.getColor(this, R.color.macro_carbs))
 
         setUpDrawer()
+        widenDrawerSwipeZone()
 
         entryList = findViewById(R.id.entryList)
         adapter = EntryAdapter(
@@ -182,7 +186,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<ImageButton>(R.id.menuButton).setOnClickListener {
             drawerLayout.openDrawer(GravityCompat.START)
         }
-        findViewById<ImageButton>(R.id.productsButton).setOnClickListener { showProductPicker() }
+        findViewById<ImageButton>(R.id.productsButton).setOnClickListener { showDishesDialog() }
         findViewById<ImageButton>(R.id.scanButton).setOnClickListener { startScan() }
         goalText.setOnClickListener { editGoals() }
 
@@ -319,11 +323,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun refreshWater() {
         val ml = store.waterFor(date)
+        val goal = store.waterGoal
         waterText.text = getString(
             R.string.water_line,
             fmt(round1(ml / 1000.0)),
-            fmt(round1(store.waterGoal / 1000.0))
-        ) + if (ml >= store.waterGoal && store.waterGoal > 0) " ✓" else ""
+            fmt(round1(goal / 1000.0))
+        ) + if (ml >= goal && goal > 0) " ✓" else ""
+        waterProgress.max = goal.coerceAtLeast(1)
+        waterProgress.progress = ml.coerceAtMost(goal)
     }
 
     private fun showWaterDialog() {
@@ -384,9 +391,8 @@ class MainActivity : AppCompatActivity() {
             when (item.itemId) {
                 R.id.menu_stats -> startActivity(Intent(this, StatsActivity::class.java))
                 R.id.menu_weight -> startActivity(Intent(this, WeightActivity::class.java))
-                R.id.menu_workouts -> startActivity(Intent(this, WorkoutActivity::class.java))
                 R.id.menu_products -> startActivity(Intent(this, ProductsActivity::class.java))
-                R.id.menu_templates -> showTemplatesDialog()
+                R.id.menu_dishes -> showDishesDialog()
                 R.id.menu_reminder -> showReminderDialog()
                 R.id.menu_export ->
                     exportLauncher.launch("calories-backup-${LocalDate.now()}.json")
@@ -398,22 +404,52 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ---------- Шаблоны дня ----------
+    // ---------- Блюда (наборы продуктов с граммовками) ----------
 
-    private fun showTemplatesDialog() {
-        val names = store.templateNames()
+    private data class DishTotals(
+        val grams: Double,
+        val kcal: Double,
+        val protein: Double,
+        val fat: Double,
+        val carbs: Double
+    )
+
+    private fun dishTotals(components: List<Store.DishComponent>): DishTotals {
+        var grams = 0.0
+        var kcal = 0.0
+        var protein = 0.0
+        var fat = 0.0
+        var carbs = 0.0
+        for (component in components) {
+            val factor = component.grams / 100.0
+            grams += component.grams
+            kcal += component.kcal100 * factor
+            protein += component.protein100 * factor
+            fat += component.fat100 * factor
+            carbs += component.carbs100 * factor
+        }
+        return DishTotals(grams, kcal, protein, fat, carbs)
+    }
+
+    private fun showDishesDialog() {
+        val dishes = store.dishNames()
         val items = mutableListOf(
-            getString(R.string.copy_yesterday),
-            getString(R.string.save_as_template)
+            getString(R.string.dish_create),
+            getString(R.string.manual_entry_option),
+            getString(R.string.copy_yesterday)
         )
-        names.mapTo(items) { "📋 $it" }
+        dishes.mapTo(items) { name ->
+            val totals = dishTotals(store.dishComponents(name))
+            getString(R.string.dish_item, name, totals.kcal.roundToInt())
+        }
         AlertDialog.Builder(this)
-            .setTitle(R.string.templates_title)
+            .setTitle(R.string.dishes_title)
             .setItems(items.toTypedArray()) { _, which ->
                 when {
-                    which == 0 -> copyYesterday()
-                    which == 1 -> askTemplateName()
-                    else -> showTemplateActions(names[which - 2])
+                    which == 0 -> askDishName()
+                    which == 1 -> showEntryDialog(null)
+                    which == 2 -> copyYesterday()
+                    else -> showDishActions(dishes[which - 3])
                 }
             }
             .setNegativeButton(android.R.string.cancel, null)
@@ -441,41 +477,169 @@ class MainActivity : AppCompatActivity() {
         appendEntries(yesterday)
     }
 
-    private fun askTemplateName() {
-        if (entries.isEmpty()) {
-            Toast.makeText(this, R.string.template_day_empty, Toast.LENGTH_SHORT).show()
-            return
-        }
-        val input = EditText(this).apply { hint = getString(R.string.template_name_hint) }
+    private fun showDishActions(name: String) {
+        val components = store.dishComponents(name)
+        val totals = dishTotals(components)
         AlertDialog.Builder(this)
-            .setTitle(R.string.save_as_template)
-            .setView(input)
-            .setPositiveButton(R.string.save) { _, _ ->
-                val name = input.text.toString().trim()
-                if (name.isEmpty()) {
-                    Toast.makeText(this, R.string.name_required, Toast.LENGTH_SHORT).show()
-                    return@setPositiveButton
+            .setTitle(name)
+            .setItems(
+                arrayOf(
+                    getString(R.string.dish_add),
+                    getString(R.string.dish_composition),
+                    getString(R.string.delete)
+                )
+            ) { _, which ->
+                when (which) {
+                    0 -> addDishEntry(name, totals)
+                    1 -> showDishComposition(name, components, totals)
+                    2 -> {
+                        store.deleteDish(name)
+                        Toast.makeText(this, R.string.dish_deleted, Toast.LENGTH_SHORT).show()
+                    }
                 }
-                store.saveTemplate(name, entries)
-                Toast.makeText(this, R.string.template_saved, Toast.LENGTH_SHORT).show()
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
     }
 
-    private fun showTemplateActions(name: String) {
+    private fun addDishEntry(name: String, totals: DishTotals) {
+        addEntry(
+            Entry(
+                name = "$name (${fmt(round1(totals.grams))} г)",
+                kcal = totals.kcal.roundToInt(),
+                time = LocalTime.now().format(timeFormat),
+                protein = round1(totals.protein),
+                fat = round1(totals.fat),
+                carbs = round1(totals.carbs)
+            )
+        )
+    }
+
+    private fun showDishComposition(
+        name: String,
+        components: List<Store.DishComponent>,
+        totals: DishTotals
+    ) {
+        val lines = components.joinToString("\n") {
+            getString(R.string.dish_component_line, it.name, fmt(it.grams))
+        }
         AlertDialog.Builder(this)
             .setTitle(name)
-            .setItems(
-                arrayOf(getString(R.string.template_apply), getString(R.string.delete))
-            ) { _, which ->
-                when (which) {
-                    0 -> appendEntries(store.templateEntries(name))
-                    1 -> store.deleteTemplate(name)
+            .setMessage(
+                lines + "\n\n" + getString(
+                    R.string.dish_totals,
+                    totals.kcal.roundToInt(),
+                    fmt(round1(totals.protein)),
+                    fmt(round1(totals.fat)),
+                    fmt(round1(totals.carbs)),
+                    fmt(round1(totals.grams))
+                )
+            )
+            .setNegativeButton(R.string.close, null)
+            .show()
+    }
+
+    // Создание блюда: имя → цикл «продукт → граммы» → Готово
+
+    private fun askDishName() {
+        if (sortedProducts().isEmpty()) {
+            Toast.makeText(this, R.string.no_products, Toast.LENGTH_SHORT).show()
+            return
+        }
+        val input = EditText(this).apply { hint = getString(R.string.dish_name_hint) }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.dish_create_title)
+            .setView(input)
+            .setPositiveButton(R.string.add_word) { _, _ ->
+                val name = input.text.toString().trim()
+                if (name.isEmpty()) {
+                    Toast.makeText(this, R.string.name_required, Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
                 }
+                buildDish(name, mutableListOf())
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
+    }
+
+    private fun buildDish(name: String, components: MutableList<Store.DishComponent>) {
+        val products = sortedProducts()
+        var title = getString(R.string.dish_pick_product, name)
+        if (components.isNotEmpty()) {
+            title += "\n" + components.joinToString(", ") { "${fmt(it.grams)} г ${it.name}" }
+        }
+        AlertDialog.Builder(this)
+            .setTitle(title)
+            .setItems(products.map { productLabel(it) }.toTypedArray()) { _, which ->
+                askDishGrams(name, components, products[which])
+            }
+            .setNegativeButton(
+                if (components.isEmpty()) android.R.string.cancel else R.string.dish_done
+            ) { _, _ ->
+                finishDish(name, components)
+            }
+            .setCancelable(false)
+            .show()
+    }
+
+    private fun askDishGrams(
+        name: String,
+        components: MutableList<Store.DishComponent>,
+        product: Product
+    ) {
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER
+            hint = getString(R.string.grams_hint)
+        }
+        AlertDialog.Builder(this)
+            .setTitle(product.name)
+            .setView(input)
+            .setPositiveButton(R.string.add_word) { _, _ ->
+                val grams = parseNum(input.text.toString())
+                if (grams != null && grams > 0) {
+                    components.add(
+                        Store.DishComponent(
+                            name = product.name,
+                            grams = round1(grams),
+                            kcal100 = product.kcal100,
+                            protein100 = product.protein100,
+                            fat100 = product.fat100,
+                            carbs100 = product.carbs100
+                        )
+                    )
+                } else {
+                    Toast.makeText(this, R.string.enter_grams, Toast.LENGTH_SHORT).show()
+                }
+                buildDish(name, components)
+            }
+            .setNegativeButton(android.R.string.cancel) { _, _ -> buildDish(name, components) }
+            .setCancelable(false)
+            .show()
+    }
+
+    private fun finishDish(name: String, components: List<Store.DishComponent>) {
+        if (components.isEmpty()) return
+        store.saveDish(name, components)
+        Toast.makeText(this, R.string.dish_saved, Toast.LENGTH_SHORT).show()
+    }
+
+    /**
+     * По умолчанию DrawerLayout ловит свайп только у самой кромки экрана (~20dp).
+     * Расширяем зону до 64dp, чтобы панель надёжно открывалась жестом.
+     * Поля приватные, поэтому через рефлексию; при неудаче остаётся стандартная зона.
+     */
+    private fun widenDrawerSwipeZone() {
+        try {
+            val draggerField = DrawerLayout::class.java.getDeclaredField("mLeftDragger")
+            draggerField.isAccessible = true
+            val dragger = draggerField.get(drawerLayout) ?: return
+            val edgeSizeField = dragger.javaClass.getDeclaredField("mEdgeSize")
+            edgeSizeField.isAccessible = true
+            val widened = (resources.displayMetrics.density * 64).toInt()
+            edgeSizeField.setInt(dragger, maxOf(edgeSizeField.getInt(dragger), widened))
+        } catch (e: Exception) {
+            // Не критично
+        }
     }
 
     /** Пункт «Напоминание» показывает текущее состояние. */
@@ -616,33 +780,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     // ---------- Добавление еды ----------
-
-    /** Выбор продукта из базы; сверху — ручной ввод, сканер и общая база. */
-    private fun showProductPicker() {
-        val products = sortedProducts()
-        val labels = mutableListOf(
-            getString(R.string.manual_entry_option),
-            getString(R.string.scan_option),
-            getString(R.string.online_search_option)
-        )
-        products.mapTo(labels) { productLabel(it) }
-
-        AlertDialog.Builder(this)
-            .setTitle(R.string.pick_product)
-            .setItems(labels.toTypedArray()) { _, which ->
-                when (which) {
-                    0 -> showEntryDialog(null)
-                    1 -> startScan()
-                    2 -> OnlineSearchDialog.show(this) { product -> saveNewProduct(product) }
-                    else -> askGrams(products[which - 3])
-                }
-            }
-            .setNeutralButton(R.string.manage_products) { _, _ ->
-                startActivity(Intent(this, ProductsActivity::class.java))
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
-    }
 
     private fun startScan() {
         scanLauncher.launch(ScanActivity.options())

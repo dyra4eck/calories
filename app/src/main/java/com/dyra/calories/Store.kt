@@ -242,29 +242,65 @@ class Store(context: Context) {
         get() = prefs.getFloat("protein_per_kg", 1.8f).toDouble()
         set(value) = prefs.edit().putFloat("protein_per_kg", value.toFloat()).apply()
 
-    // ---------- Шаблоны дня ----------
+    // ---------- Блюда (наборы продуктов с граммовками) ----------
 
-    fun templateNames(): List<String> {
-        val obj = JSONObject(prefs.getString("templates", null) ?: return emptyList())
+    /** Компонент блюда: продукт и его вес; КБЖУ на 100 г зафиксированы при создании. */
+    data class DishComponent(
+        val name: String,
+        val grams: Double,
+        val kcal100: Double,
+        val protein100: Double,
+        val fat100: Double,
+        val carbs100: Double
+    )
+
+    fun dishNames(): List<String> {
+        val obj = JSONObject(prefs.getString("dishes", null) ?: return emptyList())
         return obj.keys().asSequence().toList().sorted()
     }
 
-    fun saveTemplate(name: String, entries: List<Entry>) {
-        val obj = JSONObject(prefs.getString("templates", null) ?: "{}")
-        obj.put(name, entriesToJson(entries))
-        prefs.edit().putString("templates", obj.toString()).apply()
-    }
-
-    fun templateEntries(name: String): List<Entry> {
-        val obj = JSONObject(prefs.getString("templates", null) ?: return emptyList())
+    fun dishComponents(name: String): List<DishComponent> {
+        val obj = JSONObject(prefs.getString("dishes", null) ?: return emptyList())
         val array = obj.optJSONArray(name) ?: return emptyList()
-        return entriesFromJson(array)
+        val list = mutableListOf<DishComponent>()
+        for (i in 0 until array.length()) {
+            val item = array.getJSONObject(i)
+            list.add(
+                DishComponent(
+                    name = item.optString("n"),
+                    grams = item.optDouble("g", 0.0),
+                    kcal100 = item.optDouble("k", 0.0),
+                    protein100 = item.optDouble("p", 0.0),
+                    fat100 = item.optDouble("f", 0.0),
+                    carbs100 = item.optDouble("c", 0.0)
+                )
+            )
+        }
+        return list
     }
 
-    fun deleteTemplate(name: String) {
-        val obj = JSONObject(prefs.getString("templates", null) ?: return)
+    fun saveDish(name: String, components: List<DishComponent>) {
+        val obj = JSONObject(prefs.getString("dishes", null) ?: "{}")
+        val array = JSONArray()
+        for (component in components) {
+            array.put(
+                JSONObject()
+                    .put("n", component.name)
+                    .put("g", component.grams)
+                    .put("k", component.kcal100)
+                    .put("p", component.protein100)
+                    .put("f", component.fat100)
+                    .put("c", component.carbs100)
+            )
+        }
+        obj.put(name, array)
+        prefs.edit().putString("dishes", obj.toString()).apply()
+    }
+
+    fun deleteDish(name: String) {
+        val obj = JSONObject(prefs.getString("dishes", null) ?: return)
         obj.remove(name)
-        prefs.edit().putString("templates", obj.toString()).apply()
+        prefs.edit().putString("dishes", obj.toString()).apply()
     }
 
     fun products(): MutableList<Product> {
@@ -330,13 +366,12 @@ class Store(context: Context) {
             .put("waterGoal", waterGoal)
             .put("proteinPerKg", proteinPerKg)
             .put("water", water)
-            .put("templates", JSONObject(prefs.getString("templates", "{}")))
+            .put("dishes", JSONObject(prefs.getString("dishes", "{}")))
             .put("goalTrain", goalTrain)
             .put("goalTrainProtein", goalTrainProtein)
             .put("goalTrainFat", goalTrainFat)
             .put("goalTrainCarbs", goalTrainCarbs)
             .put("trainDays", JSONObject(prefs.getString("train_days", "{}")))
-            .put("workouts", JSONObject(prefs.getString("workouts", "{}")))
             .put("goal", goal)
             .put("goalProtein", goalProtein)
             .put("goalFat", goalFat)
@@ -392,13 +427,12 @@ class Store(context: Context) {
                 editor.putInt("water_$key", water.getInt(key))
             }
         }
-        root.optJSONObject("templates")?.let { editor.putString("templates", it.toString()) }
+        root.optJSONObject("dishes")?.let { editor.putString("dishes", it.toString()) }
         editor.putInt("goal_train", root.optInt("goalTrain", 0))
         editor.putInt("goal_train_protein", root.optInt("goalTrainProtein", 0))
         editor.putInt("goal_train_fat", root.optInt("goalTrainFat", 0))
         editor.putInt("goal_train_carbs", root.optInt("goalTrainCarbs", 0))
         root.optJSONObject("trainDays")?.let { editor.putString("train_days", it.toString()) }
-        root.optJSONObject("workouts")?.let { editor.putString("workouts", it.toString()) }
         productsValue?.let { editor.putString("products", it.toString()) }
         daysValue?.let { days ->
             for (key in days.keys()) {
@@ -406,83 +440,6 @@ class Store(context: Context) {
             }
         }
         editor.apply()
-    }
-
-    // ---------- Тренировки ----------
-
-    /** Упражнения тренировки за дату; пустой список — тренировки не было. */
-    fun workoutFor(date: LocalDate): MutableList<WorkoutExercise> {
-        val root = JSONObject(prefs.getString("workouts", null) ?: return mutableListOf())
-        val array = root.optJSONArray(date.toString()) ?: return mutableListOf()
-        val list = mutableListOf<WorkoutExercise>()
-        for (i in 0 until array.length()) {
-            val obj = array.getJSONObject(i)
-            val sets = mutableListOf<WorkoutSet>()
-            val setsArray = obj.optJSONArray("s") ?: JSONArray()
-            for (j in 0 until setsArray.length()) {
-                val pair = setsArray.getJSONArray(j)
-                sets.add(WorkoutSet(pair.getDouble(0), pair.getInt(1)))
-            }
-            list.add(WorkoutExercise(obj.optString("n"), sets))
-        }
-        return list
-    }
-
-    fun saveWorkout(date: LocalDate, exercises: List<WorkoutExercise>) {
-        val root = JSONObject(prefs.getString("workouts", null) ?: "{}")
-        if (exercises.isEmpty()) {
-            root.remove(date.toString())
-        } else {
-            val array = JSONArray()
-            for (exercise in exercises) {
-                val sets = JSONArray()
-                for (set in exercise.sets) {
-                    sets.put(JSONArray().put(set.weight).put(set.reps))
-                }
-                array.put(JSONObject().put("n", exercise.name).put("s", sets))
-            }
-            root.put(date.toString(), array)
-        }
-        prefs.edit().putString("workouts", root.toString()).apply()
-    }
-
-    /** Все названия упражнений из журнала — для подсказок при вводе. */
-    fun exerciseNames(): List<String> {
-        val root = JSONObject(prefs.getString("workouts", null) ?: return emptyList())
-        val names = sortedSetOf<String>()
-        for (key in root.keys()) {
-            val array = root.optJSONArray(key) ?: continue
-            for (i in 0 until array.length()) {
-                names.add(array.getJSONObject(i).optString("n"))
-            }
-        }
-        return names.toList()
-    }
-
-    /** История упражнения по датам (от старых к новым). */
-    fun exerciseHistory(name: String): List<Pair<LocalDate, List<WorkoutSet>>> {
-        val root = JSONObject(prefs.getString("workouts", null) ?: return emptyList())
-        val result = mutableListOf<Pair<LocalDate, List<WorkoutSet>>>()
-        for (key in root.keys()) {
-            val date = try {
-                LocalDate.parse(key)
-            } catch (e: Exception) {
-                continue
-            }
-            val array = root.optJSONArray(key) ?: continue
-            for (i in 0 until array.length()) {
-                val obj = array.getJSONObject(i)
-                if (obj.optString("n") != name) continue
-                val sets = mutableListOf<WorkoutSet>()
-                val setsArray = obj.optJSONArray("s") ?: JSONArray()
-                for (j in 0 until setsArray.length()) {
-                    val pair = setsArray.getJSONArray(j)
-                    sets.add(WorkoutSet(pair.getDouble(0), pair.getInt(1)))
-                }
-                if (sets.isNotEmpty()) result.add(date to sets)
-            }
-        }
-        return result.sortedBy { it.first }
     }
 
     /**

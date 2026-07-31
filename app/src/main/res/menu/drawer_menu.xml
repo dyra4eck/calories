@@ -8,14 +8,11 @@
             android:id="@+id/menu_weight"
             android:title="@string/menu_weight" />
         <item
-            android:id="@+id/menu_workouts"
-            android:title="@string/menu_workouts" />
-        <item
             android:id="@+id/menu_products"
             android:title="@string/menu_products" />
         <item
-            android:id="@+id/menu_templates"
-            android:title="@string/menu_templates" />
+            android:id="@+id/menu_dishes"
+            android:title="@string/menu_dishes" />
         <item
             android:id="@+id/menu_reminder"
             android:title="@string/menu_reminder" />

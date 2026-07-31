@@ -211,6 +211,13 @@
                 android:text="@string/water_add" />
         </LinearLayout>
 
+        <ProgressBar
+            android:id="@+id/waterProgress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:progressTint="#2196F3" />
+
         <!-- Список приёмов пищи -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/entryList"
@@ -257,8 +264,8 @@
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/products_title"
-                android:src="@android:drawable/ic_menu_agenda" />
+                android:contentDescription="@string/dishes_title"
+                android:src="@drawable/ic_dish" />
 
             <AutoCompleteTextView
                 android:id="@+id/searchInput"

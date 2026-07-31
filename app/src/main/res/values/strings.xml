@@ -93,16 +93,25 @@
     <string name="water_goal_hint">Дневная норма, мл</string>
     <string name="water_reset">Сбросить день</string>
     <string name="protein_per_kg_line">Белок: %1$s г/кг • цель %2$s г/кг</string>
-    <string name="menu_templates">📋 Шаблоны дня</string>
-    <string name="templates_title">Шаблоны дня</string>
     <string name="copy_yesterday">↩️ Повторить вчерашний день</string>
-    <string name="save_as_template">💾 Сохранить день как шаблон</string>
-    <string name="template_name_hint">Название шаблона</string>
-    <string name="template_saved">Шаблон сохранён</string>
-    <string name="template_apply">Добавить в текущий день</string>
-    <string name="template_day_empty">Сегодня нет записей — нечего сохранять</string>
     <string name="yesterday_empty">За вчера нет записей</string>
     <string name="entries_added">Добавлено записей: %d</string>
+
+    <!-- Блюда: наборы продуктов с граммовками -->
+    <string name="menu_dishes">🍱 Блюда</string>
+    <string name="dishes_title">Блюда</string>
+    <string name="dish_create">➕ Создать блюдо</string>
+    <string name="dish_create_title">Новое блюдо</string>
+    <string name="dish_name_hint">Название блюда (например, «Завтрак 1»)</string>
+    <string name="dish_item">🍱 %1$s — %2$d ккал</string>
+    <string name="dish_add">Добавить в дневник</string>
+    <string name="dish_composition">Состав</string>
+    <string name="dish_done">Готово ✓</string>
+    <string name="dish_saved">Блюдо сохранено — теперь оно добавляется в один тап</string>
+    <string name="dish_deleted">Блюдо удалено</string>
+    <string name="dish_pick_product">«%s»: выберите продукт</string>
+    <string name="dish_component_line">• %1$s — %2$s г</string>
+    <string name="dish_totals">Итого: %1$d ккал • Б %2$s • Ж %3$s • У %4$s (%5$s г)</string>
     <string name="protein_per_kg_hint">Белок, г/кг веса</string>
     <string name="train_day_on">Сегодня — тренировочный день 🏋️</string>
     <string name="train_day_off">Тренировочный день снят</string>
@@ -111,24 +120,6 @@
     <string name="apply_normal_days">Обычные дни</string>
     <string name="apply_train_days">Тренировочные</string>
     <string name="menu_csv">📄 Экспорт дневника в CSV</string>
-
-    <!-- Тренировки -->
-    <string name="menu_workouts">🏋️ Тренировки</string>
-    <string name="workout_hint">Нажмите на упражнение — добавить подход, долгое нажатие — история и удаление. День с тренировкой автоматически включает тренировочные цели КБЖУ.</string>
-    <string name="workout_empty">Тренировки нет.\nВведите упражнение внизу и добавляйте подходы.</string>
-    <string name="exercise_name_hint">Упражнение (например, Жим лёжа)</string>
-    <string name="exercise_name_required">Введите название упражнения</string>
-    <string name="add_set_title">%s: новый подход</string>
-    <string name="set_weight_hint">Вес, кг</string>
-    <string name="set_reps_hint">Повторы</string>
-    <string name="set_invalid">Проверьте вес и повторы</string>
-    <string name="no_sets_hint">Подходов пока нет — нажмите, чтобы добавить</string>
-    <string name="exercise_history">📈 История и 1ПМ</string>
-    <string name="remove_last_set">Удалить последний подход</string>
-    <string name="remove_exercise">Удалить упражнение</string>
-    <string name="exercise_no_history">По этому упражнению ещё нет подходов</string>
-    <string name="exercise_best_1rm">Лучший расчётный 1ПМ: %d кг</string>
-    <string name="exercise_1rm_hint">График — лучший расчётный одноповторный максимум (формула Эпли) по тренировкам.</string>
 
     <string-array name="meals">
         <item>🍳 Завтрак</item>
